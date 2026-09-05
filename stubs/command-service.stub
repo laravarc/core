@@ -1,0 +1,40 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Services\Commands;
+
+{{ commandAttributeUse }}
+{{ uses }}
+
+final class {{ moduleName }}CommandService
+{
+    public function __construct(
+        private readonly {{ repositoryShortName }} $repository,
+    ) {}
+
+    {{ commandAttribute }}
+    public function create{{ moduleName }}(array $payload): {{ modelShortName }}
+    {
+        ${{ entityVariable }} = $this->repository->create($payload);
+{{ createdEventDispatch }}
+        return ${{ entityVariable }};
+    }
+
+    {{ commandAttribute }}
+    public function update{{ moduleName }}(mixed $id, array $payload): {{ modelShortName }}
+    {
+        ${{ entityVariable }} = $this->repository->find($id);
+
+        return $this->repository->update(${{ entityVariable }}, $payload);
+    }
+
+    {{ commandAttribute }}
+    public function delete{{ moduleName }}(mixed $id): void
+    {
+        ${{ entityVariable }} = $this->repository->find($id);
+        $this->repository->delete(${{ entityVariable }});
+{{ deletedEventDispatch }}
+    }
+{{ restoreMethod }}
+}

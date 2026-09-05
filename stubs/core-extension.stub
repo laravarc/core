@@ -1,0 +1,34 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ moduleNamespace }}\Extensions;
+
+use Laravarc\Core\Contracts\CoreExtension;
+use Laravarc\Core\Extensions\ExtensionBootstrap;
+
+/**
+ * Module-owned Laravarc core extension scaffold.
+ */
+final class {{ extensionClass }} implements CoreExtension
+{
+    public function key(): string
+    {
+        return '{{ extensionKey }}';
+    }
+
+    public function requiredPackages(): array
+    {
+        return [];
+    }
+
+    public function capabilities(): iterable
+    {
+        return [];
+    }
+
+    public function register(ExtensionBootstrap $bootstrap): void
+    {
+        //
+    }
+}

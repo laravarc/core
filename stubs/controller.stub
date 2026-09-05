@@ -1,0 +1,49 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+{{ metadataUses }}{{ uses }}
+
+{{ metadataClassAttributes }}final class {{ class }}
+{
+    public function __construct(
+{{ constructorParameters }}
+    ) {}
+
+{{ indexPolicyAttribute }}    public function index()
+    {
+        ${{ collectionVariable }} = $this->{{ indexServiceProperty }}->{{ indexMethod }}();
+
+        return {{ indexReturn }};
+    }
+
+{{ showPolicyAttribute }}    public function show(mixed $id)
+    {
+        ${{ entityVariable }} = $this->{{ showServiceProperty }}->{{ showMethod }}($id);
+
+        return {{ showReturn }};
+    }
+
+{{ storePolicyAttribute }}    public function store({{ storeRequestClass }} $request)
+    {
+        ${{ entityVariable }} = $this->{{ storeServiceProperty }}->{{ storeMethod }}($request->validated());
+
+        return {{ storeReturn }};
+    }
+
+{{ updatePolicyAttribute }}    public function update({{ updateRequestClass }} $request, mixed $id)
+    {
+        ${{ entityVariable }} = $this->{{ updateServiceProperty }}->{{ updateMethod }}($id, $request->validated());
+
+        return {{ updateReturn }};
+    }
+
+{{ destroyPolicyAttribute }}    public function destroy({{ destroyRequestClass }} $request, mixed $id)
+    {
+        $this->{{ destroyServiceProperty }}->{{ destroyMethod }}($id);
+
+        return {{ destroyReturn }};
+    }
+}

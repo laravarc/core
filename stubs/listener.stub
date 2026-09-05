@@ -1,0 +1,17 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+{{ listenAttributeUse }}
+use {{ eventClass }};
+
+{{ listenAttribute }}
+final class {{ class }}
+{
+    public function handle({{ eventShortName }} $event): void
+    {
+        //
+    }
+}

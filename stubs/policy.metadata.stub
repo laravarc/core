@@ -1,0 +1,38 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ modelClass }};
+use Illuminate\Auth\Access\HandlesAuthorization;
+
+class {{ class }}
+{
+    use HandlesAuthorization;
+
+    public function viewAny(?object $user): bool
+    {
+        return true;
+    }
+
+    public function view(?object $user, {{ modelShortName }} ${{ entityVariable }}): bool
+    {
+        return true;
+    }
+
+    public function create(?object $user): bool
+    {
+        return true;
+    }
+
+    public function update(?object $user, {{ modelShortName }} ${{ entityVariable }}): bool
+    {
+        return true;
+    }
+
+    public function delete(?object $user, {{ modelShortName }} ${{ entityVariable }}): bool
+    {
+        return true;
+    }
+}

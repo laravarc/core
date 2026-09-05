@@ -1,0 +1,46 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ modelClass }};
+use {{ repositoryClass }};
+
+final class {{ class }}
+{
+    public function __construct(
+        private readonly {{ repositoryShortName }} $repository,
+    ) {}
+
+    /**
+     * @return iterable<int, {{ modelShortName }}>
+     */
+    public function list(): iterable
+    {
+        return $this->repository->all();
+    }
+
+    public function show(mixed $id): {{ modelShortName }}
+    {
+        return $this->repository->find($id);
+    }
+
+    public function store(array $payload): {{ modelShortName }}
+    {
+        return $this->repository->create($payload);
+    }
+
+    public function update(mixed $id, array $payload): {{ modelShortName }}
+    {
+        ${{ entityVariable }} = $this->repository->find($id);
+
+        return $this->repository->update(${{ entityVariable }}, $payload);
+    }
+
+    public function destroy(mixed $id): void
+    {
+        ${{ entityVariable }} = $this->repository->find($id);
+        $this->repository->delete(${{ entityVariable }});
+    }
+}

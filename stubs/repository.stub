@@ -1,0 +1,87 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ modelClass }};
+
+final class {{ class }}
+{
+    public function all(): iterable
+    {
+        return {{ modelShortName }}::query()->latest()->get();
+    }
+
+    public function find(mixed $id): {{ modelShortName }}
+    {
+        return {{ modelShortName }}::query()->findOrFail($id);
+    }
+
+    public function findOrNull(mixed $id): ?{{ modelShortName }}
+    {
+        return {{ modelShortName }}::query()->find($id);
+    }
+
+    /**
+     * @param  list<int|string> $ids
+     * @return \Illuminate\Support\Collection<int, {{ modelShortName }}>
+     */
+    public function findMany(array $ids): \Illuminate\Support\Collection
+    {
+        if ($ids === []) {
+            return collect();
+        }
+
+        return {{ modelShortName }}::query()->whereIn((new {{ modelShortName }})->getKeyName(), $ids)->get();
+    }
+
+    public function create(array $payload): {{ modelShortName }}
+    {
+        return {{ modelShortName }}::query()->create($payload);
+    }
+
+    public function update({{ modelShortName }} ${{ entityVariable }}, array $payload): {{ modelShortName }}
+    {
+        ${{ entityVariable }}->update($payload);
+
+        return ${{ entityVariable }}->refresh();
+    }
+
+    public function delete({{ modelShortName }} ${{ entityVariable }}): void
+    {
+        ${{ entityVariable }}->delete();
+    }
+
+    public function restore(mixed $id): {{ modelShortName }}
+    {
+        ${{ entityVariable }} = {{ modelShortName }}::query()->withTrashed()->findOrFail($id);
+        ${{ entityVariable }}->restore();
+
+        return ${{ entityVariable }}->refresh();
+    }
+
+    public function paginate(int $perPage = 15): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        return {{ modelShortName }}::query()->latest()->paginate($perPage);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     * @return iterable<int, {{ modelShortName }}>
+     */
+    public function search(array $filters = []): iterable
+    {
+        $query = {{ modelShortName }}::query()->latest();
+
+        foreach ($filters as $column => $value) {
+            if (! is_scalar($value) || $value === '') {
+                continue;
+            }
+
+            $query->where((string) $column, 'like', '%'.(string) $value.'%');
+        }
+
+        return $query->get();
+    }
+}

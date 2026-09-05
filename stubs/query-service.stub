@@ -1,0 +1,58 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }}\Services\Queries;
+
+{{ queryAttributeUse }}
+{{ uses }}
+
+final class {{ moduleName }}QueryService
+{
+    public function __construct(
+        private readonly {{ repositoryShortName }} $repository,
+    ) {}
+
+    {{ queryAttribute }}
+    public function find{{ moduleName }}(mixed $id): {{ modelShortName }}
+    {
+        return $this->repository->find($id);
+    }
+
+    {{ queryAttribute }}
+    public function findOrNull{{ moduleName }}(mixed $id): ?{{ modelShortName }}
+    {
+        return $this->repository->findOrNull($id);
+    }
+
+    /**
+     * @param  list<int|string> $ids
+     * @return \Illuminate\Support\Collection<int, {{ modelShortName }}>
+     */
+    {{ queryAttribute }}
+    public function findMany{{ moduleName }}(array $ids): \Illuminate\Support\Collection
+    {
+        return $this->repository->findMany($ids);
+    }
+
+    /**
+     * @return iterable<int, {{ modelShortName }}>
+     */
+    {{ queryAttribute }}
+    public function list{{ moduleName }}(): iterable
+    {
+        return $this->repository->all();
+    }
+
+    {{ queryAttribute }}
+    public function paginate{{ moduleName }}(int $perPage = 15): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        return $this->repository->paginate($perPage);
+    }
+
+    {{ queryAttribute }}
+    public function search{{ moduleName }}(array $filters = []): iterable
+    {
+        return $this->repository->search($filters);
+    }
+}

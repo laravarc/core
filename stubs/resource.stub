@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use {{ outcomeClass }};
+use {{ resultClass }};
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+use Laravarc\Core\Http\Concerns\HasStatusCode;
+
+/** @property-read {{ outcomeShortName }}|{{ resultShortName }} $resource */
+class {{ class }} extends JsonResource
+{
+    use HasStatusCode;
+
+    public static function fromOutcome({{ outcomeShortName }} $outcome, int $statusCode = 200): self
+    {
+        return (new self($outcome))->withStatusCode($statusCode);
+    }
+
+    public static function fromResult({{ resultShortName }} $result, int $statusCode = 200): self
+    {
+        return (new self($result))->withStatusCode($statusCode);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return parent::toArray($request);
+    }
+}

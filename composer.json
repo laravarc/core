@@ -1,0 +1,95 @@
+{
+    "name": "laravarc/core",
+    "description": "Laravarc Core — modular feature-module platform for Laravel.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "laravel",
+        "modules",
+        "code-generation",
+        "metadata",
+        "authorization"
+    ],
+    "homepage": "https://github.com/laravarc/core",
+    "support": {
+        "issues": "https://github.com/laravarc/core/issues",
+        "source": "https://github.com/laravarc/core"
+    },
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/filesystem": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/console": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/routing": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/mail": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/auth": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/view": "^10.0|^11.0|^12.0|^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Laravarc\\Core\\": "src/"
+        }
+    },
+    "require-dev": {
+        "laravarc/authorizer": "@dev",
+        "laravarc/eventer": "@dev",
+        "laravarc/surfacer": "@dev",
+        "orchestra/testbench": "^9.0|^10.0",
+        "pestphp/pest": "^3.0|^4.0"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../authorizer",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "../eventer",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "type": "path",
+            "url": "../surfacer",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+    "autoload-dev": {
+        "psr-4": {
+            "Laravarc\\Core\\Tests\\": "tests/",
+            "App\\Modules\\Admin\\User\\": "tests/Fixtures/Modules/Admin/User/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/pest"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Laravarc\\Core\\Providers\\CoreServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "suggest": {
+        "laravarc/authorizer": "Optional RBAC engine — enable AuthorizerCoreExtension for metadata-backed abilities.",
+        "laravarc/eventer": "Optional transport-agnostic domain event dispatch (channels, transporters).",
+        "laravarc/surfacer": "Optional HTTP boundary Surfaces — enable SurfacerCoreExtension for cache sync with laravarc:cache."
+    }
+}

@@ -1,0 +1,23 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ moduleNamespace }}\Providers;
+
+use Illuminate\Support\ServiceProvider;
+use Laravarc\Core\Contracts\ModuleServiceProviderContract;
+use Laravarc\Core\Module\ModuleServiceProviderPath;
+use {{ moduleNamespace }}\Extensions\{{ extensionClass }};
+
+final class {{ providerClass }} extends ServiceProvider implements ModuleServiceProviderContract
+{
+    public static function modulePath(): string
+    {
+        return ModuleServiceProviderPath::forClass(self::class);
+    }
+
+    public function register(): void
+    {
+        config()->push('laravarc.extensions', {{ extensionClass }}::class);
+    }
+}

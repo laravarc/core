@@ -194,13 +194,31 @@ Disable auto-registration with `LARAVARC_LOAD_MODULE_SERVICE_PROVIDERS=false` an
 | `laravarc:module remove {path}` | Remove a module directory (double confirmation; `--force` skips prompts) |
 | `laravarc:module migrate {source} {target}` | Relocate a module and update FQCN references (`--dry-run`, `--force`) |
 | `laravarc:migrate` | Run module migrations; continue generation when needed |
-| `laravarc:seed` | Run module seeders (`--module=` to scope) |
+| `laravarc:seed` | Run module seeders globally flattened (`--module=` to scope). Optional `#[SeedPriority(int)]` — **larger int runs first** (z-index). Put priority on **prerequisites** (e.g. roles), not on “important” consumers. Unattributed seeders run after all prioritized ones (FQCN ASC). |
 | `laravarc:metadata compile` | Compile metadata artifact (`--module=` to scope) |
 | `laravarc:contract sync` | Sync Command/Query service contracts from attributes |
 | `laravarc:cache refresh` | Rebuild module manifest and metadata caches |
 | `laravarc:cache clear` | Clear manifest and metadata caches |
 
 Common options: `--force`, `--dry-run`, `--preset=`, `--stack=`, `--only=`, `--except=`, `--metadata[=VALUE]`, `--contract`, `--with-extension`, `--refresh`.
+
+### Seed priority (`laravarc:seed`)
+
+Discovery collects all `*Seeder.php` under module `Database/Seeders/` (or only `--module=`), **flattens** to one list, then sorts:
+
+1. Seeders with `#[SeedPriority]` — priority **DESC** (larger first), tie-break FQCN ASC
+2. Seeders without the attribute — FQCN ASC
+
+Group 1 always runs before group 2. Duplicate priority values are allowed (no exception). Use priority on **prerequisites** so dependents without the attribute run later.
+
+```php
+use Laravarc\Core\Metadata\Attributes\SeedPriority;
+
+#[SeedPriority(100)]
+final class PlatformRolesSeeder extends Seeder { /* … */ }
+```
+
+`--dry-run` prints classes in **final execution order**.
 
 ## Generation presets
 

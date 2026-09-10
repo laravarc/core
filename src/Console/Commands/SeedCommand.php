@@ -18,7 +18,7 @@ final class SeedCommand extends Command
                             {--force : Force seeding in production}
                             {--dry-run : Preview without running seeders}';
 
-    protected $description = 'Run module database seeders';
+    protected $description = 'Run module database seeders (optional #[SeedPriority]: larger int runs first / z-index)';
 
     /** @var list<string> */
     protected $aliases = ['larc:seed'];
@@ -32,19 +32,22 @@ final class SeedCommand extends Command
                 dryRun: $this->isDryRun(),
             );
 
-            foreach ($results as $result) {
+            if ($this->isDryRun()) {
+                $this->line('Dry run: would seed in final order:');
+            }
+
+            foreach ($results as $index => $result) {
+                $line = sprintf(
+                    '%d. %s [%s]',
+                    $index + 1,
+                    $result->seederClass,
+                    $result->modulePath,
+                );
+
                 if ($this->isDryRun()) {
-                    $this->line(sprintf(
-                        'Dry run: would seed module [%s] using %s',
-                        $result->modulePath,
-                        implode(', ', $result->seeders),
-                    ));
+                    $this->line($line);
                 } else {
-                    $this->info(sprintf(
-                        'Seeded module [%s] using %s',
-                        $result->modulePath,
-                        implode(', ', $result->seeders),
-                    ));
+                    $this->info(sprintf('Seeded %s', $line));
                 }
             }
 

@@ -26,6 +26,7 @@ describe('ModuleLayout', function () {
             'Events',
             'Listeners',
             'Database/Seeders',
+            'Middlewares',
         ]);
     });
 
@@ -70,6 +71,9 @@ describe('ModulePathValidator', function () {
             ->toThrow(InvalidModulePathException::class, 'reserved');
 
         expect(fn () => $this->validator->normalize('Models/user'))
+            ->toThrow(InvalidModulePathException::class, 'reserved');
+
+        expect(fn () => $this->validator->normalize('admin/middlewares'))
             ->toThrow(InvalidModulePathException::class, 'reserved');
     });
 

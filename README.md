@@ -46,6 +46,7 @@ Publishing copies `config/laravarc.php` into your application.
 | `route_middleware` | `['api', 'laravarc.authorize']` | Middleware on generated routes |
 | `load_module_routes` | `true` | Auto-load `*Route.php` files from each module |
 | `load_module_service_providers` | `true` | Auto-register primary module service providers |
+| `load_module_middlewares` | `true` | Auto-register `Middlewares/*.php` Laravel aliases |
 | `expose_metadata_endpoint` | `false` | Expose `GET /laravarc/metadata` |
 | `metadata_store` | `file` | Metadata artifact driver |
 
@@ -185,6 +186,8 @@ php artisan laravarc:module make admin/platform/foo --with-extension
 ```
 
 Disable auto-registration with `LARAVARC_LOAD_MODULE_SERVICE_PROVIDERS=false` and register module providers yourself (for example in `bootstrap/providers.php`).
+
+**Module middlewares:** During manifest refresh, Laravarc scans `{Module}/Middlewares/*.php`. Classes that implement `ModuleMiddlewareContract` (with `alias(): string`) are stored in manifest `middlewares[]`. After module service providers load, `ModuleMiddlewareLoader` registers each alias via Laravel's `aliasMiddleware`, so routes can use `middleware('fiscal_year.context')` without editing `bootstrap/app.php`. Refresh the cache after adding or renaming a middleware. Disable with `LARAVARC_LOAD_MODULE_MIDDLEWARES=false`.
 
 ## CLI commands
 

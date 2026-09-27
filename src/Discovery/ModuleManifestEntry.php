@@ -8,6 +8,7 @@ final readonly class ModuleManifestEntry
 {
     /**
      * @param  list<class-string<\Laravarc\Core\Contracts\ModuleServiceProviderContract>>  $providers
+     * @param  list<class-string<\Laravarc\Core\Contracts\ModuleMiddlewareContract>>  $middlewares
      */
     public function __construct(
         public string $path,
@@ -16,6 +17,7 @@ final readonly class ModuleManifestEntry
         public string $rootPath,
         public string $discoveredAt,
         public array $providers = [],
+        public array $middlewares = [],
     ) {}
 
     /**
@@ -30,6 +32,7 @@ final readonly class ModuleManifestEntry
             'rootPath' => $this->rootPath,
             'discoveredAt' => $this->discoveredAt,
             'providers' => $this->providers,
+            'middlewares' => $this->middlewares,
         ];
     }
 
@@ -41,6 +44,9 @@ final readonly class ModuleManifestEntry
         /** @var list<class-string<\Laravarc\Core\Contracts\ModuleServiceProviderContract>> $providers */
         $providers = $data['providers'] ?? [];
 
+        /** @var list<class-string<\Laravarc\Core\Contracts\ModuleMiddlewareContract>> $middlewares */
+        $middlewares = $data['middlewares'] ?? [];
+
         return new self(
             path: (string) $data['path'],
             key: (string) $data['key'],
@@ -48,6 +54,7 @@ final readonly class ModuleManifestEntry
             rootPath: (string) $data['rootPath'],
             discoveredAt: (string) $data['discoveredAt'],
             providers: $providers,
+            middlewares: $middlewares,
         );
     }
 }

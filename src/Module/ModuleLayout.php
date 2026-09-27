@@ -36,6 +36,8 @@ final class ModuleLayout
 
     public const ROUTES = 'Routes';
 
+    public const MIDDLEWARES = 'Middlewares';
+
     /**
      * @return list<string>
      */
@@ -62,6 +64,7 @@ final class ModuleLayout
             self::EVENTS,
             self::LISTENERS,
             self::DATABASE.'/'.self::SEEDERS,
+            self::MIDDLEWARES,
         ];
     }
 
@@ -109,6 +112,7 @@ final class ModuleLayout
             self::SEEDERS,
             self::LANG,
             self::ROUTES,
+            self::MIDDLEWARES,
         ];
     }
 }

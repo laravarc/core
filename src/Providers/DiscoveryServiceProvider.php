@@ -7,6 +7,8 @@ namespace Laravarc\Core\Providers;
 use Illuminate\Support\ServiceProvider;
 use Laravarc\Core\Contracts\ModuleManifestStore;
 use Laravarc\Core\Discovery\ModuleManifestStoreFactory;
+use Laravarc\Core\Discovery\ModuleMiddlewareLoader;
+use Laravarc\Core\Discovery\ModuleMiddlewareResolver;
 use Laravarc\Core\Discovery\ModuleRegistry;
 use Laravarc\Core\Discovery\ModuleScanner;
 use Laravarc\Core\Discovery\ModuleServiceProviderLoader;
@@ -29,11 +31,13 @@ final class DiscoveryServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton(ModuleServiceProviderResolver::class);
+        $this->app->singleton(ModuleMiddlewareResolver::class);
 
         $this->app->singleton(ModuleScanner::class, function ($app) {
             return new ModuleScanner(
                 moduleKeyResolver: $app->make(\Laravarc\Core\Contracts\ModuleKeyResolver::class),
                 serviceProviderResolver: $app->make(ModuleServiceProviderResolver::class),
+                middlewareResolver: $app->make(ModuleMiddlewareResolver::class),
             );
         });
 
@@ -53,11 +57,21 @@ final class DiscoveryServiceProvider extends ServiceProvider
                 enabled: (bool) config('laravarc.load_module_service_providers', true),
             );
         });
+
+        $this->app->singleton(ModuleMiddlewareLoader::class, function ($app) {
+            return new ModuleMiddlewareLoader(
+                moduleRegistry: $app->make(ModuleRegistry::class),
+                app: $app,
+                enabled: (bool) config('laravarc.load_module_middlewares', true),
+            );
+        });
     }
 
     public function boot(): void
     {
         // After app config is ready; before ExtensionManager is first resolved.
         $this->app->make(ModuleServiceProviderLoader::class)->load();
+        // After providers — register Laravel middleware aliases from Middlewares/*.php.
+        $this->app->make(ModuleMiddlewareLoader::class)->load();
     }
 }

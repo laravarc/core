@@ -18,6 +18,7 @@ final class ModuleScanner
     public function __construct(
         private readonly ModuleKeyResolver $moduleKeyResolver,
         private readonly ModuleServiceProviderResolver $serviceProviderResolver,
+        private readonly ModuleMiddlewareResolver $middlewareResolver,
     ) {}
 
     /**
@@ -93,6 +94,7 @@ final class ModuleScanner
                 rootPath: $identity->rootPath,
                 discoveredAt: $discoveredAt,
                 providers: $this->serviceProviderResolver->resolve($identity),
+                middlewares: $this->middlewareResolver->resolve($identity),
             );
         }
 

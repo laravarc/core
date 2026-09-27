@@ -183,6 +183,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Module middleware alias auto-registration
+    |--------------------------------------------------------------------------
+    |
+    | When true, Laravarc registers each module's Middlewares/*.php classes that
+    | implement ModuleMiddlewareContract as Laravel middleware aliases after
+    | module ServiceProviders load. Run `php artisan laravarc:cache refresh`
+    | after adding or renaming a module middleware or it will be missing until refresh.
+    |
+    */
+    'load_module_middlewares' => env('LARAVARC_LOAD_MODULE_MIDDLEWARES', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Module view auto-loading
     |--------------------------------------------------------------------------
     |

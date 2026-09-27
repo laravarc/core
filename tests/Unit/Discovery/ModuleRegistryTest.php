@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Laravarc\Core\Convention\DefaultModuleKeyResolver;
 use Laravarc\Core\Discovery\ModuleManifestStoreFactory;
+use Laravarc\Core\Discovery\ModuleMiddlewareResolver;
 use Laravarc\Core\Discovery\ModuleRegistry;
 use Laravarc\Core\Discovery\ModuleScanner;
 use Laravarc\Core\Discovery\ModuleServiceProviderResolver;
@@ -84,6 +85,63 @@ PHP);
     expect(class_exists($fqcn))->toBeTrue();
 }
 
+function createModuleMiddlewareFixture(
+    string $modulesRoot,
+    string $path,
+    string $className,
+    string $alias,
+    string $namespace = 'App\\Modules',
+    bool $implementContract = true,
+): string {
+    createModuleFixture($modulesRoot, $path);
+
+    $moduleRootOnDisk = $modulesRoot.'/'.str_replace('/', DIRECTORY_SEPARATOR, trim($path, '/'));
+    $identity = \Laravarc\Core\Module\ModuleIdentity::fromPath(
+        $path,
+        $modulesRoot,
+        $namespace,
+        rootPathOverride: $moduleRootOnDisk,
+    );
+    $middlewaresDir = $identity->rootPath.'/Middlewares';
+    mkdir($middlewaresDir, 0777, true);
+
+    $fqcn = $identity->namespace.'\\Middlewares\\'.$className;
+    $implements = $implementContract
+        ? ' implements \\Laravarc\\Core\\Contracts\\ModuleMiddlewareContract'
+        : '';
+    $aliasMethod = $implementContract
+        ? <<<PHP
+
+    public static function alias(): string
+    {
+        return '{$alias}';
+    }
+PHP
+        : '';
+
+    file_put_contents($middlewaresDir.'/'.$className.'.php', <<<PHP
+<?php
+
+declare(strict_types=1);
+
+namespace {$identity->namespace}\\Middlewares;
+
+final class {$className}{$implements}
+{
+    public function handle(\$request, \\Closure \$next)
+    {
+        return \$next(\$request);
+    }{$aliasMethod}
+}
+PHP);
+
+    require_once $middlewaresDir.'/'.$className.'.php';
+
+    expect(class_exists($fqcn))->toBeTrue();
+
+    return $fqcn;
+}
+
 function removeDirectoryTree(string $directory): void
 {
     if (! is_dir($directory)) {
@@ -109,7 +167,7 @@ function removeDirectoryTree(string $directory): void
 describe('ModuleScanner', function () {
     beforeEach(function () {
         $this->modulesRoot = createDiscoveryFixtureRoot();
-        $this->scanner = new ModuleScanner(new DefaultModuleKeyResolver, new ModuleServiceProviderResolver);
+        $this->scanner = new ModuleScanner(new DefaultModuleKeyResolver, new ModuleServiceProviderResolver, new ModuleMiddlewareResolver);
         $this->discoveredAt = '2026-07-07T12:00:00+00:00';
     });
 
@@ -170,7 +228,7 @@ describe('ModuleRegistry', function () {
     beforeEach(function () {
         $this->modulesRoot = createDiscoveryFixtureRoot();
         $this->manifestPath = $this->modulesRoot.'/manifest.php';
-        $this->scanner = new ModuleScanner(new DefaultModuleKeyResolver, new ModuleServiceProviderResolver);
+        $this->scanner = new ModuleScanner(new DefaultModuleKeyResolver, new ModuleServiceProviderResolver, new ModuleMiddlewareResolver);
         $this->store = new FileModuleManifestStore($this->manifestPath);
         $this->registry = new ModuleRegistry(
             scanner: $this->scanner,
@@ -274,6 +332,81 @@ PHP);
 
         expect(\Laravarc\Core\Tests\Support\ModuleProviderRegistrationOrder::$order)->toBe(['alpha', 'zeta']);
     });
+
+    it('captures module middlewares during refresh', function () {
+        $fqcn = createModuleMiddlewareFixture(
+            $this->modulesRoot,
+            'admin/platform/fiscal-year',
+            'EnsureFiscalYearContext',
+            'fiscal_year.context',
+        );
+
+        $manifest = $this->registry->refresh();
+        $entry = $manifest->findByPath('Admin/Platform/FiscalYear');
+
+        expect($entry)->not->toBeNull()
+            ->and($entry?->middlewares)->toBe([$fqcn]);
+    });
+
+    it('rejects middlewares that do not implement ModuleMiddlewareContract', function () {
+        createModuleMiddlewareFixture(
+            $this->modulesRoot,
+            'admin/bad-mw',
+            'BrokenMiddleware',
+            'broken.alias',
+            implementContract: false,
+        );
+
+        expect(fn () => $this->registry->refresh())
+            ->toThrow(\Laravarc\Core\Discovery\Exceptions\ModuleScanException::class);
+    });
+
+    it('registers middleware aliases from the manifest', function () {
+        $fqcn = createModuleMiddlewareFixture(
+            $this->modulesRoot,
+            'user/company',
+            'EnsureCompanyContext',
+            'company.context',
+        );
+
+        $this->registry->refresh();
+
+        $loader = new \Laravarc\Core\Discovery\ModuleMiddlewareLoader(
+            moduleRegistry: $this->registry,
+            app: app(),
+            enabled: true,
+        );
+
+        $loader->load();
+
+        expect(app('router')->getMiddleware()['company.context'] ?? null)->toBe($fqcn);
+    });
+
+    it('rejects duplicate middleware aliases across modules', function () {
+        createModuleMiddlewareFixture(
+            $this->modulesRoot,
+            'alpha/module',
+            'AlphaContext',
+            'shared.alias',
+        );
+        createModuleMiddlewareFixture(
+            $this->modulesRoot,
+            'beta/module',
+            'BetaContext',
+            'shared.alias',
+        );
+
+        $this->registry->refresh();
+
+        $loader = new \Laravarc\Core\Discovery\ModuleMiddlewareLoader(
+            moduleRegistry: $this->registry,
+            app: app(),
+            enabled: true,
+        );
+
+        expect(fn () => $loader->load())
+            ->toThrow(\Laravarc\Core\Discovery\Exceptions\ModuleScanException::class);
+    });
 });
 
 describe('ModuleManifestStoreFactory', function () {
@@ -297,7 +430,7 @@ describe('NullModuleManifestStore registry', function () {
         createModuleFixture($modulesRoot, 'catalog/item');
 
         $registry = new ModuleRegistry(
-            scanner: new ModuleScanner(new DefaultModuleKeyResolver, new ModuleServiceProviderResolver),
+            scanner: new ModuleScanner(new DefaultModuleKeyResolver, new ModuleServiceProviderResolver, new ModuleMiddlewareResolver),
             store: new NullModuleManifestStore,
             modulesPath: $modulesRoot,
             moduleNamespace: 'App\\Modules',

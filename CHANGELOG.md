@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `laravarc:seed` (non-dry-run) streams progress **per seeder as it runs** via `ModuleSeeder` `onProgress` callback, instead of buffering all lines until the batch finishes. `--dry-run` final-order listing and `SeedPriority` sort semantics unchanged.
 
+### Fixed
+
+- Authorization: a method's own policy target now takes precedence over the module-wide `ability_overrides` map, so modules with more than one policy/controller no longer have one controller's declared model shadow another's ability. `ability_overrides` remains as a fallback when a requirement declares no model.
+- Authorization: `PolicyTargetResolver` now selects the route parameter matching the target model's `getRouteKeyName()` (typically `id`) instead of always taking the first scalar parameter, so nested routes such as `fixed-assets/{faId}/adjustments/{id}` resolve the correct instance.
+
 [1.4.0]: https://github.com/laravarc/core/releases/tag/v1.4.0
 
 ## [1.3.0] - 2026-10-11

@@ -84,11 +84,10 @@ final class GatePolicyEvaluator implements PolicyEvaluator
 
         foreach ($requirement['abilities'] as $ability) {
             $override = $policyMeta['ability_overrides'][$ability] ?? null;
-            $modelClass = is_array($override) && is_string($override['model'] ?? null)
-                ? $override['model']
-                : ($requirement['model']
-                    ?? ($controllerMeta['model'] ?? null)
-                    ?? ($policyMeta['model'] ?? null));
+            $modelClass = $requirement['model']
+                ?? (is_array($override) && is_string($override['model'] ?? null) ? $override['model'] : null)
+                ?? ($controllerMeta['model'] ?? null)
+                ?? ($policyMeta['model'] ?? null);
 
             if (! is_string($modelClass) || $modelClass === '') {
                 continue;

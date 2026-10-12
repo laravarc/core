@@ -33,9 +33,14 @@ final class ModuleSeeder
     /**
      * Collect, flatten, priority-sort, then run (or dry-run) module seeders.
      *
+     * When `$onProgress` is set, it is invoked **immediately after each** seeder
+     * completes (non-dry-run) or is listed (dry-run), so callers can stream
+     * progress instead of buffering until the full batch finishes.
+     *
+     * @param  (callable(ModuleSeedResult $result, int $index): void)|null  $onProgress
      * @return list<ModuleSeedResult> Final execution order
      */
-    public function seed(?string $modulePath, bool $force, bool $dryRun): array
+    public function seed(?string $modulePath, bool $force, bool $dryRun, ?callable $onProgress = null): array
     {
         $entries = $this->collectSeederEntries($modulePath);
 
@@ -50,7 +55,7 @@ final class ModuleSeeder
         $ordered = $this->sortSeederEntries($entries);
         $results = [];
 
-        foreach ($ordered as $entry) {
+        foreach ($ordered as $index => $entry) {
             if (! $dryRun) {
                 $exitCode = $this->artisan->call('db:seed', [
                     '--class' => $entry['class'],
@@ -62,7 +67,12 @@ final class ModuleSeeder
                 }
             }
 
-            $results[] = new ModuleSeedResult($entry['modulePath'], $entry['class']);
+            $result = new ModuleSeedResult($entry['modulePath'], $entry['class']);
+            $results[] = $result;
+
+            if ($onProgress !== null) {
+                $onProgress($result, $index);
+            }
         }
 
         return $results;

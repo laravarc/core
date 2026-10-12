@@ -139,4 +139,61 @@ PHP);
             'App\\Modules\\ModuleZ\\Database\\Seeders\\LateSeeder',
         ]);
     });
+
+    it('invokes onProgress after each live seeder in final order', function () {
+        $moduleA = $this->modulesPath.'/ModuleA/'.ModuleLayout::DATABASE.'/'.ModuleLayout::SEEDERS;
+        $moduleZ = $this->modulesPath.'/ModuleZ/'.ModuleLayout::DATABASE.'/'.ModuleLayout::SEEDERS;
+        mkdir($moduleA, 0777, true);
+        mkdir($moduleZ, 0777, true);
+
+        file_put_contents($moduleZ.'/LateSeeder.php', <<<'PHP'
+<?php
+namespace App\Modules\ModuleZ\Database\Seeders;
+use Laravarc\Core\Metadata\Attributes\SeedPriority;
+use Illuminate\Database\Seeder;
+#[SeedPriority(10)]
+final class LateSeeder extends Seeder { public function run(): void {} }
+PHP);
+        file_put_contents($moduleA.'/EarlySeeder.php', <<<'PHP'
+<?php
+namespace App\Modules\ModuleA\Database\Seeders;
+use Laravarc\Core\Metadata\Attributes\SeedPriority;
+use Illuminate\Database\Seeder;
+#[SeedPriority(100)]
+final class EarlySeeder extends Seeder { public function run(): void {} }
+PHP);
+
+        $early = 'App\\Modules\\ModuleA\\Database\\Seeders\\EarlySeeder';
+        $late = 'App\\Modules\\ModuleZ\\Database\\Seeders\\LateSeeder';
+
+        $callOrder = [];
+        $this->artisan
+            ->shouldReceive('call')
+            ->twice()
+            ->andReturnUsing(function (string $command, array $params) use (&$callOrder): int {
+                expect($command)->toBe('db:seed');
+                $callOrder[] = $params['--class'];
+
+                return 0;
+            });
+
+        $progress = [];
+        $results = $this->seeder->seed(
+            modulePath: null,
+            force: false,
+            dryRun: false,
+            onProgress: function ($result, int $index) use (&$progress, &$callOrder): void {
+                // Progress must fire only after the matching db:seed call completed.
+                expect(count($callOrder))->toBe($index + 1);
+                $progress[] = [$index, $result->seederClass];
+            },
+        );
+
+        expect($callOrder)->toBe([$early, $late]);
+        expect($progress)->toBe([
+            [0, $early],
+            [1, $late],
+        ]);
+        expect(array_map(static fn ($r) => $r->seederClass, $results))->toBe([$early, $late]);
+    });
 });

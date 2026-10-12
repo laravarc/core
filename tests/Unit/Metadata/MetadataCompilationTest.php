@@ -210,6 +210,38 @@ PHP,
         ]);
     });
 
+    it('keeps cross-module feature references flat with menu retained', function () {
+        $root = metadataFixtureRoot();
+        $namespace = metadataFixtureNamespace();
+
+        writeMetadataFixtureClass(
+            $root,
+            'Controllers/BrandController.php',
+            $namespace.'\\Controllers',
+            'BrandController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'brand.manage', label: 'feature.brand.manage', menu: 'admin.inventory.product-mutation', placement: 'tab', order: 3)]
+final class BrandController {}
+PHP,
+        );
+
+        $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
+        $result = $reader->readModule($root, $namespace, 'admin.brand', 'Brand');
+
+        expect($result['menus'])->toBe([])
+            ->and($result['features'])->toHaveCount(1)
+            ->and($result['features'][0])->toMatchArray([
+                'key' => 'brand.manage',
+                'label' => 'feature.brand.manage',
+                'menu' => 'admin.inventory.product-mutation',
+                'placement' => 'tab',
+                'order' => 3,
+                'visibility_ability' => 'viewAny',
+            ]);
+    });
+
     it('honours explicit Feature visibilityAbility instead of defaulting to viewAny', function () {
         $root = metadataFixtureRoot();
         $namespace = metadataFixtureNamespace();
@@ -422,6 +454,82 @@ describe('CoreMetadataCompiler zero modules', function () {
 
         expect($result->moduleCount)->toBe(0)
             ->and($result->artifact->modules)->toBe([]);
+    });
+});
+
+describe('CoreMetadataCompiler feature menu validation', function () {
+    it('compiles cross-module feature references and keeps them flat with menu', function () {
+        $modulesPath = metadataFixtureRoot().'/modules';
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/ProductMutation/Controllers/ProductMutationController.php',
+            'App\\Modules\\Admin\\ProductMutation\\Controllers',
+            'ProductMutationController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Menu;
+
+#[Menu(key: 'admin.inventory.product-mutation', label: 'menu.product-mutation')]
+final class ProductMutationController {}
+PHP,
+        );
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Brand/Controllers/BrandController.php',
+            'App\\Modules\\Admin\\Brand\\Controllers',
+            'BrandController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'admin.inventory.brand', label: 'feature.brand', menu: 'admin.inventory.product-mutation', placement: 'tab', order: 1)]
+final class BrandController {}
+PHP,
+        );
+
+        $compiler = metadataCompiler(
+            moduleRegistry: emptyModuleRegistry($modulesPath),
+            store: new NullMetadataArtifactStore,
+        );
+
+        $result = $compiler->compile();
+
+        expect($result->artifact->modules)->toHaveKey('admin.brand')
+            ->and($result->artifact->modules)->toHaveKey('admin.product-mutation')
+            ->and($result->artifact->modules['admin.brand']['features'][0])->toMatchArray([
+                'key' => 'admin.inventory.brand',
+                'menu' => 'admin.inventory.product-mutation',
+                'placement' => 'tab',
+                'order' => 1,
+            ])
+            ->and($result->artifact->modules['admin.brand']['menus'])->toBe([])
+            ->and($result->artifact->modules['admin.product-mutation']['menus'][0]['key'])
+            ->toBe('admin.inventory.product-mutation');
+    });
+
+    it('fails compile when a feature references an unknown menu key', function () {
+        $modulesPath = metadataFixtureRoot().'/modules';
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Supply/Controllers/SupplyController.php',
+            'App\\Modules\\Admin\\Supply\\Controllers',
+            'SupplyController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'admin.inventory.supply', label: 'feature.supply', menu: 'admin.inventory.supply-missing')]
+final class SupplyController {}
+PHP,
+        );
+
+        $compiler = metadataCompiler(
+            moduleRegistry: emptyModuleRegistry($modulesPath),
+            store: new NullMetadataArtifactStore,
+        );
+
+        expect(fn () => $compiler->compile())
+            ->toThrow(MetadataCompileException::class, 'references unknown menu key [admin.inventory.supply-missing]');
     });
 });
 

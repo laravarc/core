@@ -7,6 +7,7 @@ namespace Laravarc\Core\Console\Commands;
 use Illuminate\Console\Command;
 use Laravarc\Core\Commands\Concerns\InteractsWithArcCommandOptions;
 use Laravarc\Core\Commands\Services\ModuleSeeder;
+use Laravarc\Core\Commands\Services\ModuleSeedResult;
 use Throwable;
 
 final class SeedCommand extends Command
@@ -26,30 +27,31 @@ final class SeedCommand extends Command
     public function handle(ModuleSeeder $moduleSeeder): int
     {
         try {
-            $results = $moduleSeeder->seed(
-                modulePath: $this->option('module'),
-                force: $this->isForce(),
-                dryRun: $this->isDryRun(),
-            );
-
             if ($this->isDryRun()) {
-                $this->line('Dry run: would seed in final order:');
-            }
-
-            foreach ($results as $index => $result) {
-                $line = sprintf(
-                    '%d. %s [%s]',
-                    $index + 1,
-                    $result->seederClass,
-                    $result->modulePath,
+                $results = $moduleSeeder->seed(
+                    modulePath: $this->option('module'),
+                    force: $this->isForce(),
+                    dryRun: true,
                 );
 
-                if ($this->isDryRun()) {
-                    $this->line($line);
-                } else {
-                    $this->info(sprintf('Seeded %s', $line));
+                $this->line('Dry run: would seed in final order:');
+
+                foreach ($results as $index => $result) {
+                    $this->line($this->formatSeederLine($result, $index));
                 }
+
+                return self::SUCCESS;
             }
+
+            // Stream one line per seeder as it finishes (do not buffer until batch end).
+            $moduleSeeder->seed(
+                modulePath: $this->option('module'),
+                force: $this->isForce(),
+                dryRun: false,
+                onProgress: function (ModuleSeedResult $result, int $index): void {
+                    $this->info(sprintf('Seeded %s', $this->formatSeederLine($result, $index)));
+                },
+            );
 
             return self::SUCCESS;
         } catch (Throwable $exception) {
@@ -57,5 +59,15 @@ final class SeedCommand extends Command
 
             return self::FAILURE;
         }
+    }
+
+    private function formatSeederLine(ModuleSeedResult $result, int $index): string
+    {
+        return sprintf(
+            '%d. %s [%s]',
+            $index + 1,
+            $result->seederClass,
+            $result->modulePath,
+        );
     }
 }

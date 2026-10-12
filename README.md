@@ -197,7 +197,7 @@ Disable auto-registration with `LARAVARC_LOAD_MODULE_SERVICE_PROVIDERS=false` an
 | `laravarc:module remove {path}` | Remove a module directory (double confirmation; `--force` skips prompts) |
 | `laravarc:module migrate {source} {target}` | Relocate a module and update FQCN references (`--dry-run`, `--force`) |
 | `laravarc:migrate` | Run module migrations; continue generation when needed |
-| `laravarc:seed` | Run module seeders globally flattened (`--module=` to scope). Optional `#[SeedPriority(int)]` — **larger int runs first** (z-index). Put priority on **prerequisites** (e.g. roles), not on “important” consumers. Unattributed seeders run after all prioritized ones (FQCN ASC). |
+| `laravarc:seed` | Run module seeders globally flattened (`--module=` to scope). Optional `#[SeedPriority(int)]` — **larger int runs first** (z-index). Put priority on **prerequisites** (e.g. roles), not on “important” consumers. Unattributed seeders run after all prioritized ones (FQCN ASC). Live runs **stream** one progress line per seeder as it finishes (like `db:seed`); `--dry-run` still prints the full final order up front. |
 | `laravarc:metadata compile` | Compile metadata artifact (`--module=` to scope) |
 | `laravarc:contract sync` | Sync Command/Query service contracts from attributes |
 | `laravarc:cache refresh` | Rebuild module manifest and metadata caches |
@@ -222,6 +222,8 @@ final class PlatformRolesSeeder extends Seeder { /* … */ }
 ```
 
 `--dry-run` prints classes in **final execution order**.
+
+Live (non-dry-run) runs emit `Seeded N. {FQCN} [{modulePath}]` **as each seeder completes**, so long batches show incremental progress instead of a dump at the end. Sort order is unchanged.
 
 ## Generation presets
 

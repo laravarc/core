@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Modules\Admin\User\Controllers\AuthorizationFixtureController;
+use App\Modules\Admin\User\Controllers\CoreAuthFixtureController;
 use App\Modules\Admin\User\Policies\AuthorizationFixturePolicy;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Gate;
@@ -14,6 +15,7 @@ use Laravarc\Core\Authorization\PolicyTargetResolver;
 use Laravarc\Core\Metadata\MetadataArtifact;
 use Laravarc\Core\Tests\Fixtures\FakeMetadataReader;
 use Laravarc\Core\Tests\Fixtures\Models\AuthorizationFixtureModel;
+use Laravarc\Core\Tests\Fixtures\Models\AuthorizationOverrideFixtureModel;
 
 describe('ControllerModuleResolver', function () {
     it('derives module key from controller class namespace', function () {
@@ -182,6 +184,109 @@ describe('GatePolicyEvaluator', function () {
         expect(fn () => $evaluator->authorize($request))
             ->toThrow(AuthorizationException::class);
     });
+
+    it('prefers the requirement model over the module ability override in multi-policy modules', function () {
+        Gate::policy(AuthorizationFixtureModel::class, AuthorizationFixturePolicy::class);
+        Gate::policy(AuthorizationOverrideFixtureModel::class, AuthorizationOverrideDenyPolicy::class);
+
+        $artifact = new MetadataArtifact(
+            modules: [
+                'admin.user' => [
+                    'menus' => [],
+                    'features' => [],
+                    'policy' => [
+                        'model' => AuthorizationFixtureModel::class,
+                        'policy' => AuthorizationFixturePolicy::class,
+                        'abilities' => ['viewAny'],
+                        'ability_overrides' => [
+                            'viewAny' => ['model' => AuthorizationFixtureModel::class],
+                        ],
+                        'controllers' => [
+                            AuthorizationFixtureController::class => [
+                                'model' => AuthorizationFixtureModel::class,
+                                'policy' => AuthorizationFixturePolicy::class,
+                                'public' => false,
+                                'methods' => [
+                                    'index' => [
+                                        'requirements' => [
+                                            ['abilities' => ['viewAny'], 'model' => AuthorizationFixtureModel::class],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                            CoreAuthFixtureController::class => [
+                                'model' => AuthorizationOverrideFixtureModel::class,
+                                'policy' => AuthorizationOverrideDenyPolicy::class,
+                                'public' => false,
+                                'methods' => [
+                                    'index' => [
+                                        'requirements' => [
+                                            ['abilities' => ['viewAny'], 'model' => AuthorizationOverrideFixtureModel::class],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        );
+
+        $evaluator = authorizationEvaluatorWithArtifact($artifact);
+
+        Route::get('/multi-policy-override', [CoreAuthFixtureController::class, 'index']);
+
+        $request = \Illuminate\Http\Request::create('/multi-policy-override', 'GET');
+        $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
+
+        expect(fn () => $evaluator->authorize($request))
+            ->toThrow(AuthorizationException::class);
+    });
+
+    it('falls back to the module ability override when the requirement model is absent', function () {
+        Gate::policy(AuthorizationFixtureModel::class, AuthorizationFixturePolicy::class);
+
+        $artifact = new MetadataArtifact(
+            modules: [
+                'admin.user' => [
+                    'menus' => [],
+                    'features' => [],
+                    'policy' => [
+                        'model' => AuthorizationFixtureModel::class,
+                        'policy' => AuthorizationFixturePolicy::class,
+                        'abilities' => ['viewAny'],
+                        'ability_overrides' => [
+                            'viewAny' => ['model' => AuthorizationFixtureModel::class],
+                        ],
+                        'controllers' => [
+                            AuthorizationFixtureController::class => [
+                                'model' => null,
+                                'policy' => null,
+                                'public' => false,
+                                'methods' => [
+                                    'index' => [
+                                        'requirements' => [
+                                            ['abilities' => ['viewAny'], 'model' => null],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        );
+
+        $evaluator = authorizationEvaluatorWithArtifact($artifact);
+
+        Route::get('/override-fallback-users', [AuthorizationFixtureController::class, 'index']);
+
+        $request = \Illuminate\Http\Request::create('/override-fallback-users', 'GET');
+        $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
+
+        expect(fn () => $evaluator->authorize($request))
+            ->not->toThrow(AuthorizationException::class);
+    });
 });
 
 /**
@@ -250,6 +355,14 @@ final class AuthorizationFixtureDenyPolicy
     }
 
     public function create(?object $user): bool
+    {
+        return false;
+    }
+}
+
+final class AuthorizationOverrideDenyPolicy
+{
+    public function viewAny(?object $user): bool
     {
         return false;
     }

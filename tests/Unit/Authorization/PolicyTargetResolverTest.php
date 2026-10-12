@@ -75,7 +75,60 @@ describe('PolicyTargetResolver', function () {
         expect(fn () => (new PolicyTargetResolver)->resolve($request, 'view', PolicyTargetDualKeyModel::class))
             ->toThrow(NotFoundHttpException::class);
     });
+
+    it('prefers the target model route key over the first scalar parameter in nested routes', function () {
+        $record = new PolicyTargetIntegerModel(['name' => 'delta']);
+        $record->id = 42;
+
+        $query = Mockery::mock(Builder::class);
+        $query->shouldReceive('find')->with('42')->once()->andReturn($record);
+
+        bindModelQuery(PolicyTargetIntegerModel::class, $query, usesUniqueIds: false);
+
+        $request = requestWithRouteParameters(
+            ['faId' => '11111111-1111-1111-1111-111111111111', 'id' => '42'],
+            '/policy-target/{faId}/adjustments/{id}',
+        );
+
+        $resolved = (new PolicyTargetResolver)->resolve($request, 'view', PolicyTargetIntegerModel::class);
+
+        expect($resolved)->toBe($record);
+    });
+
+    it('falls back to the first scalar parameter when the model route key is absent', function () {
+        $record = new PolicyTargetIntegerModel(['name' => 'epsilon']);
+        $record->id = 9;
+
+        $query = Mockery::mock(Builder::class);
+        $query->shouldReceive('find')->with('slug-one')->once()->andReturn($record);
+
+        bindModelQuery(PolicyTargetIntegerModel::class, $query, usesUniqueIds: false);
+
+        $request = requestWithRouteParameters(['code' => 'slug-one'], '/policy-target-code/{code}');
+
+        $resolved = (new PolicyTargetResolver)->resolve($request, 'view', PolicyTargetIntegerModel::class);
+
+        expect($resolved)->toBe($record);
+    });
 });
+
+function requestWithRouteParameters(array $parameters, string $uri): Request
+{
+    Route::get($uri, fn () => response()->noContent());
+
+    $path = preg_replace_callback(
+        '/\{(\w+)\}/',
+        static fn (array $matches): string => (string) ($parameters[$matches[1]] ?? ''),
+        $uri,
+    );
+
+    $request = Request::create($path, 'GET');
+    $route = Route::getRoutes()->match($request);
+
+    $request->setRouteResolver(fn () => $route);
+
+    return $request;
+}
 
 function bindModelQuery(string $modelClass, Builder $query, bool $usesUniqueIds, array $uniqueIds = []): void
 {

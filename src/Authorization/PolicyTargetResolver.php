@@ -50,14 +50,14 @@ final class PolicyTargetResolver
             return null;
         }
 
-        $id = $this->resolveRouteIdentifier($request);
+        /** @var Model $model */
+        $model = app($modelClass);
+
+        $id = $this->resolveRouteIdentifier($request, $model->getRouteKeyName());
 
         if ($id === null) {
             return null;
         }
-
-        /** @var Model $model */
-        $model = app($modelClass);
 
         return $this->resolveByIdentifier($model, $id);
     }
@@ -79,7 +79,7 @@ final class PolicyTargetResolver
         return $resolved;
     }
 
-    private function resolveRouteIdentifier(Request $request): mixed
+    private function resolveRouteIdentifier(Request $request, ?string $preferredName = null): mixed
     {
         $route = $request->route();
 
@@ -87,16 +87,22 @@ final class PolicyTargetResolver
             return null;
         }
 
+        $candidates = [];
+
         foreach ($route->parameters() as $name => $parameter) {
             if (in_array($name, ['ability', 'abilityOverride'], true)) {
                 continue;
             }
 
             if (is_scalar($parameter) || $parameter === null) {
-                return $parameter;
+                $candidates[$name] = $parameter;
             }
         }
 
-        return null;
+        if ($preferredName !== null && array_key_exists($preferredName, $candidates)) {
+            return $candidates[$preferredName];
+        }
+
+        return $candidates === [] ? null : reset($candidates);
     }
 }

@@ -433,24 +433,16 @@ final class ReflectionMetadataReader
 
         foreach ($features as $feature) {
             $menuKey = $feature['menu'] ?? null;
-            $featureEntry = $feature;
-            unset($featureEntry['menu']);
 
-            if (is_string($menuKey) && $menuKey !== '') {
-                if (! isset($menusByKey[$menuKey])) {
-                    throw new MetadataCompileException(sprintf(
-                        'Feature [%s] references unknown menu key [%s].',
-                        $feature['key'],
-                        $menuKey,
-                    ));
-                }
-
+            if (is_string($menuKey) && $menuKey !== '' && isset($menusByKey[$menuKey])) {
+                $featureEntry = $feature;
+                unset($featureEntry['menu']);
                 $menusByKey[$menuKey]['features'][] = $featureEntry;
 
                 continue;
             }
 
-            $globalFeatures[] = $featureEntry;
+            $globalFeatures[] = $feature;
         }
 
         $nestedMenus = array_values($menusByKey);

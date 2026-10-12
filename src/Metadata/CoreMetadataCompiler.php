@@ -35,6 +35,8 @@ final class CoreMetadataCompiler implements MetadataCompiler
         $modules = $this->compileModules($modulePath);
         ksort($modules);
 
+        $this->assertFeaturesReferenceKnownMenus($modules);
+
         $artifact = new MetadataArtifact(
             modules: $modules,
             compiledAt: (new DateTimeImmutable)->format(DATE_ATOM),
@@ -75,6 +77,43 @@ final class CoreMetadataCompiler implements MetadataCompiler
         $this->extensions?->dispatch(ExtensionHook::MetadataCompileAfter, $result);
 
         return $result;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $modules
+     */
+    private function assertFeaturesReferenceKnownMenus(array $modules): void
+    {
+        $knownMenuKeys = [];
+
+        foreach ($modules as $moduleData) {
+            foreach ($moduleData['menus'] ?? [] as $menu) {
+                $key = $menu['key'] ?? null;
+
+                if (is_string($key) && $key !== '') {
+                    $knownMenuKeys[$key] = true;
+                }
+            }
+        }
+
+        foreach ($modules as $moduleKey => $moduleData) {
+            foreach ($moduleData['features'] ?? [] as $feature) {
+                $menuKey = $feature['menu'] ?? null;
+
+                if (! is_string($menuKey) || $menuKey === '') {
+                    continue;
+                }
+
+                if (! isset($knownMenuKeys[$menuKey])) {
+                    throw new MetadataCompileException(sprintf(
+                        'Feature [%s] in module [%s] references unknown menu key [%s].',
+                        $feature['key'] ?? '',
+                        $moduleKey,
+                        $menuKey,
+                    ));
+                }
+            }
+        }
     }
 
     /**

@@ -16,6 +16,5 @@ final class Feature
         public ?string $placement = null,
         public ?int $order = null,
         public ?string $description = null,
-        public ?string $visibilityAbility = null,
     ) {}
 }

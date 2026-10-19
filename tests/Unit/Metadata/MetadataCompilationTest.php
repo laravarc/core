@@ -155,7 +155,7 @@ PHP,
                 'label' => 'feature.users.manage',
                 'placement' => 'tab',
                 'order' => 1,
-                'visibility_ability' => 'viewAny',
+
             ])
             ->and($result['features'])->toBe([])
             ->and($result['policy']['model'])->toBe($namespace.'\\Models\\User')
@@ -206,7 +206,6 @@ PHP,
             'label' => 'feature.global.widget',
             'placement' => 'panel',
             'order' => 5,
-            'visibility_ability' => 'viewAny',
         ]);
     });
 
@@ -238,61 +237,8 @@ PHP,
                 'menu' => 'admin.inventory.product-mutation',
                 'placement' => 'tab',
                 'order' => 3,
-                'visibility_ability' => 'viewAny',
+
             ]);
-    });
-
-    it('honours explicit Feature visibilityAbility instead of defaulting to viewAny', function () {
-        $root = metadataFixtureRoot();
-        $namespace = metadataFixtureNamespace();
-
-        writeMetadataFixtureClass(
-            $root,
-            'Policies/CatalogPolicy.php',
-            $namespace.'\\Policies',
-            'CatalogPolicy',
-            <<<'PHP'
-final class CatalogPolicy
-{
-    public function show(?object $actor): bool
-    {
-        return true;
-    }
-
-    public function sync(?object $actor): bool
-    {
-        return true;
-    }
-}
-PHP,
-        );
-
-        writeMetadataFixtureClass(
-            $root,
-            'Controllers/CatalogController.php',
-            $namespace.'\\Controllers',
-            'CatalogController',
-            <<<'PHP'
-use Laravarc\Core\Metadata\Attributes\Feature;
-
-#[Feature(key: 'admin.catalog.sync', label: 'Sync Catalog', placement: 'admin', order: 5, visibilityAbility: 'sync')]
-final class CatalogController
-{
-    public function sync(): void {}
-}
-PHP,
-        );
-
-        $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
-        $result = $reader->readModule($root, $namespace, 'admin.catalog', 'Catalog');
-
-        expect($result['features'][0])->toMatchArray([
-            'key' => 'admin.catalog.sync',
-            'label' => 'Sync Catalog',
-            'placement' => 'admin',
-            'order' => 5,
-            'visibility_ability' => 'sync',
-        ]);
     });
 
     it('fails compile on duplicate menu keys', function () {

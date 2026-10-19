@@ -133,7 +133,6 @@ final class ReflectionMetadataReader
 
         $this->mergePolicyAbilities($moduleRoot, $moduleNamespace, $moduleEntityName, $moduleDefaults, $abilities);
 
-        $features = $this->applyFeatureVisibilityAbilities($features, $controllers);
         $this->assertNoDuplicates($moduleKey, $menus, $features);
 
         [$menus, $globalFeatures] = $this->nestFeatures($menus, $features);
@@ -189,60 +188,6 @@ final class ReflectionMetadataReader
         }
     }
 
-    /**
-     * @param  list<array<string, mixed>>  $features
-     * @param  array<string, array{methods: array<string, array{requirements: list<array{abilities: list<string>, model: string|null}>}>}>  $controllers
-     * @return list<array<string, mixed>>
-     */
-    private function applyFeatureVisibilityAbilities(array $features, array $controllers): array
-    {
-        return array_map(function (array $feature) use ($controllers): array {
-            $controllerClass = $feature['_controller'] ?? null;
-            unset($feature['_controller']);
-
-            if (! isset($feature['visibility_ability'])) {
-                $feature['visibility_ability'] = is_string($controllerClass)
-                    ? $this->resolveFeatureVisibilityAbilityForController($controllers[$controllerClass] ?? [])
-                    : $this->resolveFeatureVisibilityAbility($controllers);
-            }
-
-            return $feature;
-        }, $features);
-    }
-
-    /**
-     * @param  array{methods?: array<string, array{requirements: list<array{abilities: list<string>, model: string|null}>}>}  $controller
-     */
-    private function resolveFeatureVisibilityAbilityForController(array $controller): ?string
-    {
-        foreach ($controller['methods'] ?? [] as $method) {
-            foreach ($method['requirements'] ?? [] as $requirement) {
-                if (in_array('viewAny', $requirement['abilities'] ?? [], true)) {
-                    return 'viewAny';
-                }
-            }
-        }
-
-        return 'viewAny';
-    }
-
-    /**
-     * @param  array<string, array{methods: array<string, array{requirements: list<array{abilities: list<string>, model: string|null}>}>}>  $controllers
-     */
-    private function resolveFeatureVisibilityAbility(array $controllers): ?string
-    {
-        foreach ($controllers as $controller) {
-            foreach ($controller['methods'] ?? [] as $method) {
-                foreach ($method['requirements'] ?? [] as $requirement) {
-                    if (in_array('viewAny', $requirement['abilities'] ?? [], true)) {
-                        return 'viewAny';
-                    }
-                }
-            }
-        }
-
-        return 'viewAny';
-    }
 
     /**
      * @return list<array{abilities: list<string>, model: string|null}>
@@ -409,9 +354,6 @@ final class ReflectionMetadataReader
             'placement' => $feature->placement,
             'order' => $feature->order,
             'description' => $feature->description,
-            'visibility_ability' => ($feature->visibilityAbility !== null && $feature->visibilityAbility !== '')
-                ? $feature->visibilityAbility
-                : null,
         ], static fn (mixed $value): bool => $value !== null);
     }
 

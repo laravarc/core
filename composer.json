@@ -1,5 +1,6 @@
 {
     "name": "laravarc/core",
+    "version": "1.6.0",
     "description": "Laravarc Core — modular feature-module platform for Laravel.",
     "type": "library",
     "license": "MIT",

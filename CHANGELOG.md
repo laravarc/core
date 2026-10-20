@@ -5,6 +5,14 @@ All notable changes to `laravarc/core` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2026-10-20
+
+### Changed
+
+- `PathValidator` now normalises forgiving admin input instead of rejecting it: missing leading slash, dots to path separators, underscores/spaces to hyphens, camelCase/PascalCase to kebab-case, duplicate slashes, and trailing slashes. Dynamic segments (`{id}` / `:id`) remain invalid.
+
+[1.6.1]: https://github.com/laravarc/core/releases/tag/v1.6.1
+
 ## [1.6.0] - 2026-10-20
 
 ### Added

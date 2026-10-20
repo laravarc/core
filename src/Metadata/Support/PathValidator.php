@@ -13,6 +13,11 @@ use InvalidArgumentException;
  * their parent menu (`/features` -> `/menus/features`); the joined value is
  * never persisted. The admin update endpoint and the metadata compile path
  * must both use this class instead of duplicating the rules.
+ *
+ * Input is normalised before validation: missing leading slash, dots,
+ * underscores, spaces, camelCase, duplicate slashes, and trailing slashes are
+ * accepted and rewritten to a lowercase kebab-case path. Dynamic segments
+ * (`{id}` / `:id`) remain invalid.
  */
 final class PathValidator
 {
@@ -28,21 +33,12 @@ final class PathValidator
         string $surface = 'default',
         array $reservedPaths = [],
     ): string {
-        $normalized = $this->normalizeSlashes($path);
+        $this->assertNoDynamicSegment($path, 'Menu path');
 
-        if ($normalized === '' || $normalized === '/') {
+        $normalized = $this->normalize($path);
+
+        if ($normalized === '' || $normalized === self::PRIMARY_TAB_SUFFIX) {
             throw new InvalidArgumentException('Menu path must not be empty or root.');
-        }
-
-        $this->assertNoWhitespace($normalized, 'Menu path');
-        $this->assertNoDynamicSegment($normalized, 'Menu path');
-
-        if (! str_starts_with($normalized, '/')) {
-            throw new InvalidArgumentException('Menu path must start with "/".');
-        }
-
-        if (str_ends_with($normalized, '/')) {
-            throw new InvalidArgumentException('Menu path must not end with "/".');
         }
 
         $this->assertSegmentGrammar($normalized, 'Menu path');
@@ -61,32 +57,28 @@ final class PathValidator
         string $surface = 'default',
         array $reservedPaths = [],
     ): string {
-        $suffix = $suffix ?? '';
+        $rawSuffix = trim($suffix ?? '');
+
+        $this->assertNoDynamicSegment($rawSuffix, 'Feature path');
 
         if ($menuPath === null || $menuPath === '') {
-            if ($suffix !== '') {
+            if ($rawSuffix !== '') {
                 throw new InvalidArgumentException('Feature path requires a parent menu path.');
             }
 
             return '';
         }
 
-        $normalizedMenu = $this->normalizeSlashes($menuPath);
-        $normalized = $this->normalizeSlashes($suffix);
+        $normalizedMenu = $this->normalize($menuPath);
+
+        if ($rawSuffix === self::PRIMARY_TAB_SUFFIX) {
+            return self::PRIMARY_TAB_SUFFIX;
+        }
+
+        $normalized = $this->normalize($rawSuffix);
 
         if ($normalized === '') {
             throw new InvalidArgumentException('Feature path is required when the feature has a menu; use "/" for the primary tab.');
-        }
-
-        $this->assertNoWhitespace($normalized, 'Feature path');
-        $this->assertNoDynamicSegment($normalized, 'Feature path');
-
-        if (! str_starts_with($normalized, '/')) {
-            throw new InvalidArgumentException('Feature path must be relative to its menu and start with "/".');
-        }
-
-        if ($normalized !== self::PRIMARY_TAB_SUFFIX && str_ends_with($normalized, '/')) {
-            throw new InvalidArgumentException('Feature path must not end with "/" unless it is the primary tab "/".');
         }
 
         $this->assertSegmentGrammar($normalized, 'Feature path');
@@ -115,8 +107,8 @@ final class PathValidator
 
     public function combine(?string $menuPath, ?string $suffix): ?string
     {
-        $menuPath = $menuPath === null ? null : $this->normalizeSlashes($menuPath);
-        $suffix = $suffix === null ? null : $this->normalizeSlashes($suffix);
+        $menuPath = $menuPath === null ? null : $this->normalize($menuPath);
+        $suffix = $suffix === null ? null : $this->normalize($suffix);
 
         if ($menuPath === null || $menuPath === '') {
             return $suffix === null || $suffix === '' ? null : $suffix;
@@ -131,7 +123,7 @@ final class PathValidator
 
     public function isPrimaryTabSuffix(?string $suffix): bool
     {
-        return $this->normalizeSlashes($suffix ?? '') === self::PRIMARY_TAB_SUFFIX;
+        return trim($suffix ?? '') === self::PRIMARY_TAB_SUFFIX;
     }
 
     /**
@@ -219,13 +211,6 @@ final class PathValidator
         }
     }
 
-    private function assertNoWhitespace(string $path, string $label): void
-    {
-        if (preg_match('/\s/', $path)) {
-            throw new InvalidArgumentException(sprintf('%s must not contain whitespace.', $label));
-        }
-    }
-
     private function assertNoDynamicSegment(string $path, string $label): void
     {
         if (str_contains($path, '{') || str_contains($path, '}') || str_contains($path, ':')) {
@@ -244,15 +229,53 @@ final class PathValidator
         }
     }
 
-    private function normalizeSlashes(string $path): string
+    /**
+     * Normalise forgiving admin input to a lowercase kebab-case absolute path.
+     *
+     * Examples:
+     *  - `menus` -> `/menus`
+     *  - `books.company` -> `/books/company`
+     *  - `books/company` -> `/books/company`
+     *  - `/books/company/` -> `/books/company`
+     *  - `booksCompany` -> `/books-company`
+     *  - `books//company` -> `/books/company`
+     */
+    private function normalize(string $path): string
     {
-        return preg_replace('#/+#', '/', $path) ?? $path;
+        $path = trim($path);
+
+        if ($path === '') {
+            return '';
+        }
+
+        $path = str_replace('\\', '/', $path);
+        $path = str_replace(['.', '_', ' '], ['/', '-', '-'], $path);
+
+        // split camelCase / PascalCase boundaries before lowercasing
+        $path = preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $path) ?? $path;
+        $path = preg_replace('/([A-Z]+)([A-Z][a-z])/', '$1-$2', $path) ?? $path;
+
+        $path = strtolower($path);
+        $path = preg_replace('/[^a-z0-9\/-]+/', '-', $path) ?? $path;
+        $path = preg_replace('#/+#', '/', $path) ?? $path;
+        $path = preg_replace('/-+/', '-', $path) ?? $path;
+
+        $segments = array_map(
+            static fn (string $segment): string => trim($segment, '-'),
+            explode('/', $path),
+        );
+
+        $path = implode('/', $segments);
+        $path = preg_replace('#/+#', '/', $path) ?? $path;
+        $path = trim($path, '/');
+
+        return $path === '' ? '' : '/'.$path;
     }
 
     private function normalizeForComparison(string $path): string
     {
-        $normalized = strtolower($this->normalizeSlashes($path));
+        $normalized = $this->normalize($path);
 
-        return $normalized === '/' ? $normalized : rtrim($normalized, '/');
+        return $normalized === self::PRIMARY_TAB_SUFFIX ? $normalized : rtrim($normalized, '/');
     }
 }

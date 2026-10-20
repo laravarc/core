@@ -8,6 +8,7 @@ final readonly class MetadataCompileResult
 {
     /**
      * @param  list<string>  $moduleKeys
+     * @param  list<string>  $warnings
      */
     public function __construct(
         public MetadataArtifact $artifact,
@@ -17,5 +18,6 @@ final readonly class MetadataCompileResult
         public int $featureCount,
         public int $policyCount,
         public bool $persisted,
+        public array $warnings = [],
     ) {}
 }

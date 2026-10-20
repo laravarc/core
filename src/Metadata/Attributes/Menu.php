@@ -17,5 +17,6 @@ final class Menu
         public ?int $order = null,
         public ?string $parent = null,
         public ?bool $visible = null,
+        public ?string $path = null,
     ) {}
 }

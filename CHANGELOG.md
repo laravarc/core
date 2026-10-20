@@ -5,6 +5,20 @@ All notable changes to `laravarc/core` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-10-20
+
+### Added
+
+- Optional `path` parameter on `Laravarc\Core\Metadata\Attributes\Menu` and `Feature`; compiled metadata carries the value when provided and omits it when null.
+- `Laravarc\Core\Metadata\Support\PathValidator` — shared rules for absolute menu paths, relative feature suffixes, slash normalisation, reserved paths, per-surface uniqueness, and primary-tab uniqueness.
+- `MetadataCompileResult::$warnings` plus `laravarc:metadata compile` output for nodes that still rely on the derived path fallback.
+
+### Changed
+
+- Path values are additive metadata; existing attribute calls and compiled artifacts without `path` remain valid. No breaking change.
+
+[1.6.0]: https://github.com/laravarc/core/releases/tag/v1.6.0
+
 ## [1.5.0] - 2026-10-20
 
 ### Removed
@@ -15,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `Feature` metadata is now limited to UI placement + entitlement catalog data; authorization/visibility ability linkage is no longer stored on Feature metadata.
+- Metadata compilation tests no longer assert the removed `visibility_ability` field.
 
 [1.5.0]: https://github.com/laravarc/core/releases/tag/v1.5.0
 

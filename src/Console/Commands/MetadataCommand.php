@@ -63,6 +63,10 @@ final class MetadataCommand extends Command
                 $result->persisted ? '' : ' (not persisted)',
             ));
 
+            foreach ($result->warnings as $warning) {
+                $this->warn($warning);
+            }
+
             return self::SUCCESS;
         } catch (Throwable $exception) {
             $this->error($exception->getMessage());

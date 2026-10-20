@@ -331,6 +331,7 @@ final class ReflectionMetadataReader
             'order' => $menu->order,
             'parent' => $menu->parent,
             'visible' => $menu->visible,
+            'path' => $menu->path,
             'features' => [],
         ], static fn (mixed $value): bool => $value !== null);
     }
@@ -354,6 +355,7 @@ final class ReflectionMetadataReader
             'placement' => $feature->placement,
             'order' => $feature->order,
             'description' => $feature->description,
+            'path' => $feature->path,
         ], static fn (mixed $value): bool => $value !== null);
     }
 

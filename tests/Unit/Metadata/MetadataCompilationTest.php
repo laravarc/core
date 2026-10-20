@@ -403,6 +403,124 @@ describe('CoreMetadataCompiler zero modules', function () {
     });
 });
 
+describe('CoreMetadataCompiler path fallback warnings', function () {
+    it('warns for menus and nested features that rely on the derived path', function () {
+        $modulesPath = metadataFixtureRoot().'/modules';
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/User/Controllers/UserController.php',
+            'App\\Modules\\Admin\\User\\Controllers',
+            'UserController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+use Laravarc\Core\Metadata\Attributes\Menu;
+
+#[Menu(key: 'admin.users', label: 'Users')]
+#[Feature(key: 'admin.users.roles', label: 'Roles', menu: 'admin.users', placement: 'tab', order: 1)]
+final class UserController {}
+PHP,
+        );
+
+        $compiler = metadataCompiler(
+            moduleRegistry: emptyModuleRegistry($modulesPath),
+            store: new NullMetadataArtifactStore,
+        );
+
+        $result = $compiler->compile();
+
+        expect($result->warnings)->toHaveCount(2)
+            ->and(implode("\n", $result->warnings))->toContain('Menu [admin.users] in module [admin.user]')
+            ->and(implode("\n", $result->warnings))->toContain('Feature [admin.users.roles] in module [admin.user]');
+    });
+
+    it('does not warn when explicit paths are present', function () {
+        $modulesPath = metadataFixtureRoot().'/modules';
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Team/Controllers/TeamController.php',
+            'App\\Modules\\Admin\\Team\\Controllers',
+            'TeamController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+use Laravarc\Core\Metadata\Attributes\Menu;
+
+#[Menu(key: 'admin.teams', label: 'Teams', path: '/teams')]
+#[Feature(key: 'admin.teams.roles', label: 'Roles', menu: 'admin.teams', placement: 'tab', order: 1, path: '/roles')]
+final class TeamController {}
+PHP,
+        );
+
+        $compiler = metadataCompiler(
+            moduleRegistry: emptyModuleRegistry($modulesPath),
+            store: new NullMetadataArtifactStore,
+        );
+
+        $result = $compiler->compile();
+
+        expect($result->warnings)->toBe([])
+            ->and($result->artifact->modules['admin.team']['menus'][0])
+            ->toMatchArray(['key' => 'admin.teams', 'path' => '/teams'])
+            ->and($result->artifact->modules['admin.team']['menus'][0]['features'][0])
+            ->toMatchArray(['key' => 'admin.teams.roles', 'path' => '/roles']);
+    });
+
+    it('fails compile when a feature repeats its menu path', function () {
+        $modulesPath = metadataFixtureRoot().'/modules';
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Repeat/Controllers/RepeatController.php',
+            'App\\Modules\\Admin\\Repeat\\Controllers',
+            'RepeatController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+use Laravarc\Core\Metadata\Attributes\Menu;
+
+#[Menu(key: 'admin.repeat', label: 'Repeat', path: '/repeat')]
+#[Feature(key: 'admin.repeat.tab', label: 'Tab', menu: 'admin.repeat', placement: 'tab', path: '/repeat/tab')]
+final class RepeatController {}
+PHP,
+        );
+
+        $compiler = metadataCompiler(
+            moduleRegistry: emptyModuleRegistry($modulesPath),
+            store: new NullMetadataArtifactStore,
+        );
+
+        expect(fn () => $compiler->compile())
+            ->toThrow(MetadataCompileException::class, 'Feature [admin.repeat.tab]');
+    });
+
+    it('fails compile when a feature has a path but its menu has no path', function () {
+        $modulesPath = metadataFixtureRoot().'/modules';
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Header/Controllers/HeaderController.php',
+            'App\\Modules\\Admin\\Header\\Controllers',
+            'HeaderController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+use Laravarc\Core\Metadata\Attributes\Menu;
+
+#[Menu(key: 'admin.header', label: 'Header')]
+#[Feature(key: 'admin.header.tab', label: 'Tab', menu: 'admin.header', placement: 'tab', path: '/tab')]
+final class HeaderController {}
+PHP,
+        );
+
+        $compiler = metadataCompiler(
+            moduleRegistry: emptyModuleRegistry($modulesPath),
+            store: new NullMetadataArtifactStore,
+        );
+
+        expect(fn () => $compiler->compile())
+            ->toThrow(MetadataCompileException::class, 'requires a parent menu path');
+    });
+});
+
 describe('CoreMetadataCompiler feature menu validation', function () {
     it('compiles cross-module feature references and keeps them flat with menu', function () {
         $modulesPath = metadataFixtureRoot().'/modules';

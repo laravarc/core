@@ -116,11 +116,12 @@ describe('PathValidator feature suffixes', function () {
             ->and($validator->validateFeatureSuffix('roleAbilities', '/menus'))->toBe('/role-abilities');
     });
 
-    it('rejects a feature path that repeats the menu path and suggests the relative suffix', function () {
+    it('strips a repeated menu prefix instead of rejecting it', function () {
         $validator = new PathValidator;
 
-        expect(fn () => $validator->validateFeatureSuffix('/menus/features', '/menus'))
-            ->toThrow(InvalidArgumentException::class, 'did you mean "/features"');
+        expect($validator->validateFeatureSuffix('/menus/features', '/menus'))->toBe('/features')
+            ->and($validator->validateFeatureSuffix('/menus', '/menus'))->toBe('/')
+            ->and($validator->validateFeatureSuffix('menus/features', '/menus'))->toBe('/features');
     });
 
     it('rejects an empty suffix when the feature has a menu', function () {

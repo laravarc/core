@@ -466,7 +466,7 @@ PHP,
             ->toMatchArray(['key' => 'admin.teams.roles', 'path' => '/roles']);
     });
 
-    it('fails compile when a feature repeats its menu path', function () {
+    it('normalises a repeated menu prefix in a feature path', function () {
         $modulesPath = metadataFixtureRoot().'/modules';
 
         writeMetadataFixtureClass(
@@ -489,8 +489,10 @@ PHP,
             store: new NullMetadataArtifactStore,
         );
 
-        expect(fn () => $compiler->compile())
-            ->toThrow(MetadataCompileException::class, 'Feature [admin.repeat.tab]');
+        $result = $compiler->compile();
+
+        expect($result->artifact->modules['admin.repeat']['menus'][0]['features'][0])
+            ->toMatchArray(['key' => 'admin.repeat.tab', 'path' => '/repeat/tab']);
     });
 
     it('fails compile when a feature has a path but its menu has no path', function () {

@@ -84,19 +84,18 @@ final class PathValidator
         $this->assertSegmentGrammar($normalized, 'Feature path');
 
         if ($normalized !== self::PRIMARY_TAB_SUFFIX) {
-            $combined = $this->combine($normalizedMenu, $normalized) ?? '';
+            // Forgiving double-prefix: if the admin pasted the menu path again,
+            // strip it instead of rejecting. `/books/company` -> `/company`;
+            // exactly `/books` -> `/` (primary tab).
+            if ($normalized === $normalizedMenu || str_starts_with($normalized, $normalizedMenu.'/')) {
+                $normalized = substr($normalized, strlen($normalizedMenu)) ?: self::PRIMARY_TAB_SUFFIX;
 
-            if ($combined !== '' && (
-                $normalized === $normalizedMenu
-                || str_starts_with($normalized, $normalizedMenu.'/')
-            )) {
-                $suggestion = substr($normalized, strlen($normalizedMenu)) ?: self::PRIMARY_TAB_SUFFIX;
-
-                throw new InvalidArgumentException(sprintf(
-                    'Feature path is relative to its menu; did you mean "%s"?',
-                    $suggestion,
-                ));
+                if ($normalized !== self::PRIMARY_TAB_SUFFIX && ! str_starts_with($normalized, '/')) {
+                    $normalized = '/'.$normalized;
+                }
             }
+
+            $combined = $this->combine($normalizedMenu, $normalized) ?? '';
 
             $this->assertLength($combined, 'Combined feature path');
             $this->assertNotReserved($combined, $surface, $reservedPaths);

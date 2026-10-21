@@ -5,34 +5,31 @@ declare(strict_types=1);
 use Laravarc\Core\Metadata\Support\PathValidator;
 
 describe('PathValidator menu paths', function () {
-    it('accepts a valid absolute menu path', function () {
+    it('accepts a valid menu path with or without a leading slash', function () {
         $validator = new PathValidator;
 
-        expect($validator->validateMenuPath('/menus'))->toBe('/menus');
+        expect($validator->validateMenuPath('/menus'))->toBe('menus')
+            ->and($validator->validateMenuPath('menus'))->toBe('menus');
     });
 
     it('normalises duplicate slashes', function () {
         $validator = new PathValidator;
 
-        expect($validator->validateMenuPath('//menus///roles'))->toBe('/menus/roles');
+        expect($validator->validateMenuPath('//menus///roles'))->toBe('menus/roles');
     });
 
-    it('normalises a missing leading slash', function () {
-        $validator = new PathValidator;
 
-        expect($validator->validateMenuPath('menus'))->toBe('/menus');
-    });
 
     it('normalises a trailing slash', function () {
         $validator = new PathValidator;
 
-        expect($validator->validateMenuPath('/menus/'))->toBe('/menus');
+        expect($validator->validateMenuPath('/menus/'))->toBe('menus');
     });
 
     it('normalises whitespace to hyphens', function () {
         $validator = new PathValidator;
 
-        expect($validator->validateMenuPath('/menu s'))->toBe('/menu-s');
+        expect($validator->validateMenuPath('/menu s'))->toBe('menu-s');
     });
 
     it('rejects dynamic segments', function (string $path) {
@@ -45,18 +42,23 @@ describe('PathValidator menu paths', function () {
     it('normalises uppercase and camelCase to kebab-case', function () {
         $validator = new PathValidator;
 
-        expect($validator->validateMenuPath('/Menus'))->toBe('/menus')
-            ->and($validator->validateMenuPath('booksCompany'))->toBe('/books-company');
+        expect($validator->validateMenuPath('/Menus'))->toBe('menus')
+            ->and($validator->validateMenuPath('booksCompany'))->toBe('books-company')
+            ->and($validator->validateMenuPath('PathExample'))->toBe('path-example')
+            ->and($validator->validateMenuPath('PATHEXAMPLE'))->toBe('pathexample')
+            ->and($validator->validateMenuPath('Pathexample'))->toBe('pathexample');
     });
 
     it('normalises dots, underscores, and duplicate slashes', function () {
         $validator = new PathValidator;
 
-        expect($validator->validateMenuPath('books.company'))->toBe('/books/company')
-            ->and($validator->validateMenuPath('books/company'))->toBe('/books/company')
-            ->and($validator->validateMenuPath('/books.company/'))->toBe('/books/company')
-            ->and($validator->validateMenuPath('books_company'))->toBe('/books-company')
-            ->and($validator->validateMenuPath('books//company'))->toBe('/books/company');
+        expect($validator->validateMenuPath('books.company'))->toBe('books/company')
+            ->and($validator->validateMenuPath('books/company'))->toBe('books/company')
+            ->and($validator->validateMenuPath('/books.company/'))->toBe('books/company')
+            ->and($validator->validateMenuPath('books_company'))->toBe('books-company')
+            ->and($validator->validateMenuPath('path-example'))->toBe('path-example')
+            ->and($validator->validateMenuPath('path/example'))->toBe('path/example')
+            ->and($validator->validateMenuPath('books//company'))->toBe('books/company');
     });
 
     it('rejects a reserved path on a surface', function () {
@@ -92,7 +94,7 @@ describe('PathValidator menu paths', function () {
     it('rejects an overlong path', function () {
         $validator = new PathValidator;
 
-        expect(fn () => $validator->validateMenuPath('/'.str_repeat('a', PathValidator::MAX_LENGTH)))
+        expect(fn () => $validator->validateMenuPath(str_repeat('a', PathValidator::MAX_LENGTH + 1)))
             ->toThrow(InvalidArgumentException::class, 'must not exceed');
     });
 });
@@ -101,34 +103,34 @@ describe('PathValidator feature suffixes', function () {
     it('combines a relative suffix with its menu path', function () {
         $validator = new PathValidator;
 
-        expect($validator->combine('/menus', '/features'))->toBe('/menus/features')
-            ->and($validator->combine('/menus', '/'))->toBe('/menus')
-            ->and($validator->combine('/menus', ''))->toBe('/menus')
+        expect($validator->combine('/menus', '/features'))->toBe('menus/features')
+            ->and($validator->combine('/menus', '/'))->toBe('menus')
+            ->and($validator->combine('/menus', ''))->toBe('menus')
             ->and($validator->combine(null, ''))->toBeNull();
     });
 
     it('returns a normalised relative suffix', function () {
         $validator = new PathValidator;
 
-        expect($validator->validateFeatureSuffix('//features', '/menus'))->toBe('/features')
-            ->and($validator->validateFeatureSuffix('features', '/menus'))->toBe('/features')
-            ->and($validator->validateFeatureSuffix('/features/', '/menus'))->toBe('/features')
-            ->and($validator->validateFeatureSuffix('roleAbilities', '/menus'))->toBe('/role-abilities');
+        expect($validator->validateFeatureSuffix('//features', '/menus'))->toBe('features')
+            ->and($validator->validateFeatureSuffix('features', '/menus'))->toBe('features')
+            ->and($validator->validateFeatureSuffix('/features/', '/menus'))->toBe('features')
+            ->and($validator->validateFeatureSuffix('roleAbilities', '/menus'))->toBe('role-abilities');
     });
 
     it('strips a repeated menu prefix instead of rejecting it', function () {
         $validator = new PathValidator;
 
-        expect($validator->validateFeatureSuffix('/menus/features', '/menus'))->toBe('/features')
-            ->and($validator->validateFeatureSuffix('/menus', '/menus'))->toBe('/')
-            ->and($validator->validateFeatureSuffix('menus/features', '/menus'))->toBe('/features');
+        expect($validator->validateFeatureSuffix('/menus/features', '/menus'))->toBe('features')
+            ->and($validator->validateFeatureSuffix('/menus', '/menus'))->toBe('')
+            ->and($validator->validateFeatureSuffix('menus/features', '/menus'))->toBe('features');
     });
 
-    it('rejects an empty suffix when the feature has a menu', function () {
+    it('treats an empty suffix as the primary tab', function () {
         $validator = new PathValidator;
 
-        expect(fn () => $validator->validateFeatureSuffix('', '/menus'))
-            ->toThrow(InvalidArgumentException::class, 'use "/" for the primary tab');
+        expect($validator->validateFeatureSuffix('', '/menus'))->toBe('')
+            ->and($validator->validateFeatureSuffix('/', '/menus'))->toBe('');
     });
 
     it('rejects a non-empty suffix when the feature has no menu', function () {
@@ -141,15 +143,15 @@ describe('PathValidator feature suffixes', function () {
     it('normalises a suffix with a trailing slash, except the primary tab', function () {
         $validator = new PathValidator;
 
-        expect($validator->validateFeatureSuffix('/features/', '/menus'))->toBe('/features')
-            ->and($validator->validateFeatureSuffix('/', '/menus'))->toBe('/');
+        expect($validator->validateFeatureSuffix('/features/', '/menus'))->toBe('features')
+            ->and($validator->validateFeatureSuffix('/', '/menus'))->toBe('');
     });
 
     it('recognises the primary tab suffix', function () {
         $validator = new PathValidator;
 
         expect($validator->isPrimaryTabSuffix('/'))->toBeTrue()
-            ->and($validator->isPrimaryTabSuffix(''))->toBeFalse()
+            ->and($validator->isPrimaryTabSuffix(''))->toBeTrue()
             ->and($validator->isPrimaryTabSuffix('/features'))->toBeFalse();
     });
 

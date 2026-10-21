@@ -9,12 +9,12 @@ use InvalidArgumentException;
 /**
  * Single source of truth for UI base-path rules.
  *
- * Menu paths are absolute (`/menus`). Feature paths are suffixes relative to
- * their parent menu (`/features` -> `/menus/features`); the joined value is
+ * Menu paths are slashless (`menus`). Feature paths are suffixes relative to
+ * their parent menu (`features` -> `menus/features`); the joined value is
  * never persisted. The admin update endpoint and the metadata compile path
  * must both use this class instead of duplicating the rules.
  *
- * Input is normalised before validation: missing leading slash, dots,
+ * Input is normalised before validation: leading/trailing slash, dots,
  * underscores, spaces, camelCase, duplicate slashes, and trailing slashes are
  * accepted and rewritten to a lowercase kebab-case path. Dynamic segments
  * (`{id}` / `:id`) remain invalid.
@@ -23,7 +23,7 @@ final class PathValidator
 {
     public const MAX_LENGTH = 255;
 
-    public const PRIMARY_TAB_SUFFIX = '/';
+    public const PRIMARY_TAB_SUFFIX = '';
 
     /**
      * @param  list<string>  $reservedPaths
@@ -71,28 +71,25 @@ final class PathValidator
 
         $normalizedMenu = $this->normalize($menuPath);
 
-        if ($rawSuffix === self::PRIMARY_TAB_SUFFIX) {
+        if ($rawSuffix === '' || $rawSuffix === '/' || $rawSuffix === self::PRIMARY_TAB_SUFFIX) {
             return self::PRIMARY_TAB_SUFFIX;
         }
 
         $normalized = $this->normalize($rawSuffix);
 
         if ($normalized === '') {
-            throw new InvalidArgumentException('Feature path is required when the feature has a menu; use "/" for the primary tab.');
+            throw new InvalidArgumentException('Feature path is required when the feature has a menu; leave it empty for the primary tab.');
         }
 
         $this->assertSegmentGrammar($normalized, 'Feature path');
 
         if ($normalized !== self::PRIMARY_TAB_SUFFIX) {
             // Forgiving double-prefix: if the admin pasted the menu path again,
-            // strip it instead of rejecting. `/books/company` -> `/company`;
-            // exactly `/books` -> `/` (primary tab).
+            // strip it instead of rejecting. `books/company` -> `company`;
+            // exactly `books` -> `` (primary tab).
             if ($normalized === $normalizedMenu || str_starts_with($normalized, $normalizedMenu.'/')) {
                 $normalized = substr($normalized, strlen($normalizedMenu)) ?: self::PRIMARY_TAB_SUFFIX;
-
-                if ($normalized !== self::PRIMARY_TAB_SUFFIX && ! str_starts_with($normalized, '/')) {
-                    $normalized = '/'.$normalized;
-                }
+                $normalized = ltrim($normalized, '/');
             }
 
             $combined = $this->combine($normalizedMenu, $normalized) ?? '';
@@ -122,7 +119,9 @@ final class PathValidator
 
     public function isPrimaryTabSuffix(?string $suffix): bool
     {
-        return trim($suffix ?? '') === self::PRIMARY_TAB_SUFFIX;
+        $trimmed = trim($suffix ?? '');
+
+        return $trimmed === '' || $trimmed === '/';
     }
 
     /**
@@ -229,15 +228,15 @@ final class PathValidator
     }
 
     /**
-     * Normalise forgiving admin input to a lowercase kebab-case absolute path.
+     * Normalise forgiving admin input to a lowercase kebab-case slashless path.
      *
      * Examples:
-     *  - `menus` -> `/menus`
-     *  - `books.company` -> `/books/company`
-     *  - `books/company` -> `/books/company`
-     *  - `/books/company/` -> `/books/company`
-     *  - `booksCompany` -> `/books-company`
-     *  - `books//company` -> `/books/company`
+     *  - `menus` or `/menus` -> `menus`
+     *  - `books.company` -> `books/company`
+     *  - `books/company` -> `books/company`
+     *  - `/books/company/` -> `books/company`
+     *  - `booksCompany` -> `books-company`
+     *  - `books//company` -> `books/company`
      */
     private function normalize(string $path): string
     {
@@ -268,13 +267,11 @@ final class PathValidator
         $path = preg_replace('#/+#', '/', $path) ?? $path;
         $path = trim($path, '/');
 
-        return $path === '' ? '' : '/'.$path;
+        return $path;
     }
 
     private function normalizeForComparison(string $path): string
     {
-        $normalized = $this->normalize($path);
-
-        return $normalized === self::PRIMARY_TAB_SUFFIX ? $normalized : rtrim($normalized, '/');
+        return $this->normalize($path);
     }
 }

@@ -27,6 +27,8 @@ abstract class AbstractFileMetadataArtifactStore implements MetadataArtifactStor
 
         try {
             return $this->decode($this->path);
+        } catch (CorruptMetadataArtifactException $exception) {
+            throw $exception;
         } catch (\Throwable $exception) {
             throw new CorruptMetadataArtifactException(
                 sprintf('Metadata artifact at [%s] is corrupt. Run laravarc:metadata compile.', $this->path),

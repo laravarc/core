@@ -12,6 +12,7 @@ use Laravarc\Core\Module\ModuleLayout;
 use Laravarc\Core\Schema\ColumnTypeMapper;
 use Laravarc\Core\Schema\DatabaseSchemaReader;
 use Laravarc\Core\Tests\Fixtures\FakeSchemaIntrospector;
+use Laravarc\Core\Support\CachePath;
 use Laravarc\Core\Tests\Fixtures\FakeSchemaIntrospectorFactory;
 
 describe('laravarc:module make', function () {
@@ -173,7 +174,7 @@ describe('laravarc:metadata compile', function () {
 
         expect($result->moduleCount)->toBeGreaterThan(0)
             ->and($result->persisted)->toBeTrue()
-            ->and(file_exists(config('laravarc.metadata_file_path')))->toBeTrue()
+            ->and(file_exists(CachePath::metadata()))->toBeTrue()
             ->and($result->artifact->modules)->toBeArray();
     });
 

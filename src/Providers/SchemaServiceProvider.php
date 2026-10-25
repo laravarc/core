@@ -13,6 +13,7 @@ use Laravarc\Core\Schema\SchemaIntrospectorFactory;
 use Laravarc\Core\Schema\SchemaService;
 use Laravarc\Core\Schema\SchemaSnapshotCache;
 use Laravarc\Core\Schema\TableNameResolver;
+use Laravarc\Core\Support\CachePath;
 
 final class SchemaServiceProvider extends ServiceProvider
 {
@@ -22,7 +23,7 @@ final class SchemaServiceProvider extends ServiceProvider
         $this->app->singleton(ColumnTypeMapper::class);
         $this->app->singleton(TableNameResolver::class);
         $this->app->singleton(SchemaSnapshotCache::class, function () {
-            return new SchemaSnapshotCache((string) config('laravarc.schema_cache_path'));
+            return new SchemaSnapshotCache(CachePath::schemaDirectory());
         });
 
         $this->app->singleton(SchemaReader::class, function ($app) {

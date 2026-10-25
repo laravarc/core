@@ -48,7 +48,76 @@ Publishing copies `config/laravarc.php` into your application.
 | `load_module_service_providers` | `true` | Auto-register primary module service providers |
 | `load_module_middlewares` | `true` | Auto-register `Middlewares/*.php` Laravel aliases |
 | `expose_metadata_endpoint` | `false` | Expose `GET /laravarc/metadata` |
-| `metadata_store` | `file` | Metadata artifact driver |
+| `schema_cache_enabled` | `false` (`LARAVARC_SCHEMA_CACHE`) | Cache DB schema snapshots during generation |
+
+Runtime cache artifacts are written to fixed paths under `bootstrap/cache/laravarc/`:
+`core-manifest.php`, `core-metadata.php`, `authorizer-abilities.php`, and (when the
+catalog is installed) `catalog-state.php` (`installed`, `revision`, `installed_at`).
+Schema snapshots use `storage/framework/cache/laravarc-schema/`. These locations are
+not configurable.
+
+## Catalog
+
+Core owns the **catalog reader/writer**, metadata sync, and the `Laravarc\Core\Catalog\Catalog`
+facade. HTTP routes and admin controllers stay in the application.
+
+### Installed signal
+
+`bootstrap/cache/laravarc/catalog-state.php` is the source of truth (`installed` bool,
+`revision` int). Missing file means not installed. `laravarc:cache clear` does **not**
+delete this file. Core does not use `Schema::hasTable` as the installed flag.
+
+### Commands
+
+| Command | Purpose |
+|---------|---------|
+| `laravarc:catalog install` | Run the core catalog migration, mark installed, initial metadata sync |
+| `laravarc:catalog uninstall` | Drop only `laravarc_catalog_*` tables, remove state file (labels/custom menus/translations lost). Does **not** touch `larc_abilities`, `larc_roles`, or `larc_user_abilities` |
+| `laravarc:catalog reset` | Delete all catalog rows, re-sync from compiled metadata (`--force` in production) |
+| `laravarc:catalog status` | Print installed, revision, state path |
+
+`laravarc:cache build` still writes manifest, metadata, and abilities. When installed,
+it syncs metadata into catalog tables unless `--no-catalog-sync` or
+`LARAVARC_CATALOG_SYNC=false|0|no|off`.
+
+### Reader rule
+
+When not installed, `CatalogReader` serves menus/features from compiled metadata.
+When installed, it reads the four `laravarc_catalog_*` tables only. Database errors
+propagate; there is no silent fallback to metadata. Controller lists for a menu key
+always come from the metadata artifact (`CatalogReader::controllersForMenu`).
+
+### Facade query API
+
+Static entries: `Catalog::forUser($user)` and `Catalog::all()` / `Catalog::query()`.
+Each returns a new `CatalogQuery` (manager is stateless, not Macroable; safe under Octane).
+
+Chain methods (clone per call, order-independent AND for policy + model):
+
+- `forPolicy($policyClassOrKey)`
+- `forModel($model)`
+- `withOrphaned()` / `onlyOrphaned()`
+
+Terminals: `manifest()`, `resources()`, `menus()`, `features(?$menuKey)`, `toArray()` (alias of `manifest()`).
+Default terminals omit `is_orphaned` rows. Manifest includes `menus`, `features`, and `revision` only
+(no `catalog`, `mode`, `editable`, or `routes`). Cache keys include `revision`.
+
+User visibility is a separate Gate/`hasAbility` pass over controllers for `forUser`; it is not a manifest mode flag.
+
+### Orphans
+
+`larc_menus` and `larc_features` use `is_orphaned` and nullable
+`orphaned_at` (indexed). No `deleted_at` / SoftDeletes. Sync never orphans `source=custom`.
+v1 has no purge command; reset deletes all rows then re-syncs.
+
+### Role save reference chain (app phase 2)
+
+For role saves, the app resolves menu keys → `CatalogReader::controllersForMenu` →
+AbilityCatalog gates → existing authorizer persistence (`larc_user_abilities` from
+T-20261025-005 is unchanged by catalog uninstall). Today SimpleAcc still uses
+`SurfaceCatalog` and Admin Menu/Feature/`CatalogSyncService` on app tables; phase 2
+delegates those modules to this reader/writer. Packages and roles resource blocks remain
+app manifest extensions, not core catalog keys.
 
 ### Stubs (optional)
 

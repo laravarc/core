@@ -168,7 +168,6 @@ describe('ModuleScanner', function () {
     beforeEach(function () {
         $this->modulesRoot = createDiscoveryFixtureRoot();
         $this->scanner = new ModuleScanner(new DefaultModuleKeyResolver, new ModuleServiceProviderResolver, new ModuleMiddlewareResolver);
-        $this->discoveredAt = '2026-07-07T12:00:00+00:00';
     });
 
     afterEach(function () {
@@ -179,7 +178,7 @@ describe('ModuleScanner', function () {
         createModuleFixture($this->modulesRoot, 'admin/user');
         createModuleFixture($this->modulesRoot, 'product');
 
-        $entries = $this->scanner->scan($this->modulesRoot, 'App\\Modules', $this->discoveredAt);
+        $entries = $this->scanner->scan($this->modulesRoot, 'App\\Modules');
 
         expect($entries)->toHaveCount(2)
             ->and($entries[0]->path)->toBe('Admin/User')
@@ -191,7 +190,7 @@ describe('ModuleScanner', function () {
     it('discovers migration-only modules', function () {
         createModuleFixture($this->modulesRoot, 'draft/order', ['Database/Migrations']);
 
-        $entries = $this->scanner->scan($this->modulesRoot, 'App\\Modules', $this->discoveredAt);
+        $entries = $this->scanner->scan($this->modulesRoot, 'App\\Modules');
 
         expect($entries)->toHaveCount(1)
             ->and($entries[0]->path)->toBe('Draft/Order');
@@ -201,7 +200,7 @@ describe('ModuleScanner', function () {
         mkdir($this->modulesRoot.'/admin', 0777, true);
         createModuleFixture($this->modulesRoot, 'admin/user');
 
-        $entries = $this->scanner->scan($this->modulesRoot, 'App\\Modules', $this->discoveredAt);
+        $entries = $this->scanner->scan($this->modulesRoot, 'App\\Modules');
 
         expect($entries)->toHaveCount(1)
             ->and($entries[0]->path)->toBe('Admin/User');
@@ -216,7 +215,7 @@ describe('ModuleScanner', function () {
         createModuleFixture($outside, 'outside-module');
         symlink($outside.'/outside-module', $this->modulesRoot.'/linked-module');
 
-        $entries = $this->scanner->scan($this->modulesRoot, 'App\\Modules', $this->discoveredAt);
+        $entries = $this->scanner->scan($this->modulesRoot, 'App\\Modules');
 
         expect($entries)->toHaveCount(0);
 
@@ -229,7 +228,7 @@ describe('ModuleRegistry', function () {
         $this->modulesRoot = createDiscoveryFixtureRoot();
         $this->manifestPath = $this->modulesRoot.'/manifest.php';
         $this->scanner = new ModuleScanner(new DefaultModuleKeyResolver, new ModuleServiceProviderResolver, new ModuleMiddlewareResolver);
-        $this->store = new FileModuleManifestStore($this->manifestPath);
+        $this->store = new FileModuleManifestStore($this->manifestPath, $this->modulesRoot);
         $this->registry = new ModuleRegistry(
             scanner: $this->scanner,
             store: $this->store,
@@ -240,6 +239,46 @@ describe('ModuleRegistry', function () {
 
     afterEach(function () {
         removeDirectoryTree($this->modulesRoot);
+    });
+
+    it('persists a schema v1 manifest keyed by module key without filesystem-bound fields', function () {
+        createModuleFixture($this->modulesRoot, 'admin/user');
+
+        $this->registry->refresh();
+
+        /** @var array<string, mixed> $data */
+        $data = include $this->manifestPath;
+
+        expect($data['schema_version'])->toBe(1)
+            ->and($data['generated_by'])->toBe('laravarc core')
+            ->and($data['compiled_at'])->not->toBe('')
+            ->and($data['fingerprint'])->toStartWith('sha256:')
+            ->and(array_keys($data['modules']))->toBe(['admin.user'])
+            ->and($data['modules']['admin.user'])->not->toHaveKey('rootPath')
+            ->and($data['modules']['admin.user'])->not->toHaveKey('discoveredAt')
+            ->and($data['modules']['admin.user'])->not->toHaveKey('kind')
+            ->and($data['modules']['admin.user'])->toHaveKeys(['path', 'key', 'namespace', 'providers', 'middlewares', 'services', 'listeners']);
+
+        expect(file_get_contents($this->manifestPath))
+            ->not->toContain('rootPath')
+            ->not->toContain('discoveredAt');
+    });
+
+    it('rejects a manifest without a supported schema version', function () {
+        file_put_contents($this->manifestPath, "<?php\n\nreturn ['modules' => []];\n");
+
+        expect(fn () => $this->store->read())
+            ->toThrow(\Laravarc\Core\Discovery\Exceptions\CorruptModuleManifestException::class);
+    });
+
+    it('hydrates rootPath from the current modules root on read', function () {
+        createModuleFixture($this->modulesRoot, 'admin/user');
+
+        $this->registry->refresh();
+        $entry = $this->store->read()?->findByKey('admin.user');
+
+        expect($entry)->not->toBeNull()
+            ->and(is_dir($entry->rootPath))->toBeTrue();
     });
 
     it('refreshes and persists manifest entries', function () {

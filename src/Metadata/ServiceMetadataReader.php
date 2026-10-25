@@ -28,7 +28,6 @@ final class ServiceMetadataReader
             contract: $commandContract,
             concretePath: $entry->rootPath.'/Services/Commands/'.$entity.'CommandService.php',
             contractPath: $this->contractPaths->contractPath($entry->path, $entity.'CommandServiceContract'),
-            kind: 'command',
         );
 
         if ($commandBinding !== null) {
@@ -42,7 +41,6 @@ final class ServiceMetadataReader
             contract: $queryContract,
             concretePath: $entry->rootPath.'/Services/Queries/'.$entity.'QueryService.php',
             contractPath: $this->contractPaths->contractPath($entry->path, $entity.'QueryServiceContract'),
-            kind: 'query',
         );
 
         if ($queryBinding !== null) {
@@ -74,7 +72,6 @@ final class ServiceMetadataReader
         string $contract,
         string $concretePath,
         string $contractPath,
-        string $kind,
     ): ?array {
         if (! is_file($concretePath) || ! is_file($contractPath)) {
             return null;
@@ -83,7 +80,6 @@ final class ServiceMetadataReader
         return [
             'concrete' => $concrete,
             'contract' => $contract,
-            'kind' => $kind,
         ];
     }
 

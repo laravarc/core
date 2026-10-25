@@ -5,15 +5,21 @@ declare(strict_types=1);
 namespace Laravarc\Core\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Laravarc\Core\Authorization\AbilityCatalogReader;
+use Laravarc\Core\Authorization\AbilityCatalogWriter;
+use Laravarc\Core\Authorization\PolicyConventionResolver;
+use Laravarc\Core\Contracts\AbilityCatalog;
 use Laravarc\Core\Contracts\MetadataArtifactStore;
 use Laravarc\Core\Contracts\MetadataCompiler;
 use Laravarc\Core\Extensions\ExtensionManager;
 use Laravarc\Core\Http\Controllers\MetadataController;
-use Laravarc\Core\Metadata\CoreMetadataCompiler;
 use Laravarc\Core\Metadata\ContractPathResolver;
+use Laravarc\Core\Metadata\CoreMetadataCompiler;
 use Laravarc\Core\Metadata\ListenerMetadataReader;
 use Laravarc\Core\Metadata\MetadataArtifactStoreFactory;
 use Laravarc\Core\Metadata\MetadataService;
+use Laravarc\Core\Metadata\Stores\FileMetadataArtifactStore;
+use Laravarc\Core\Support\CachePath;
 use Laravarc\Core\Metadata\ModuleClassDiscoverer;
 use Laravarc\Core\Metadata\ReflectionMetadataReader;
 use Laravarc\Core\Metadata\ServiceMetadataReader;
@@ -24,19 +30,19 @@ final class MetadataServiceProvider extends ServiceProvider
     {
         $this->app->singleton(MetadataArtifactStoreFactory::class);
 
-        $this->app->singleton(MetadataArtifactStore::class, function ($app) {
-            $factory = $app->make(MetadataArtifactStoreFactory::class);
-
-            return $factory->make(
-                (string) config('laravarc.metadata_store', 'file'),
-                (string) config('laravarc.metadata_file_path'),
-                (string) config('laravarc.metadata_json_path'),
-                $app->make('cache.store'),
-                (string) config('laravarc.metadata_cache_key', 'laravarc.metadata'),
-            );
+        $this->app->singleton(MetadataArtifactStore::class, function () {
+            return new FileMetadataArtifactStore(CachePath::metadata());
         });
 
-        $this->app->singleton(\Laravarc\Core\Authorization\PolicyConventionResolver::class);
+        $this->app->singleton(AbilityCatalogReader::class, function () {
+            return new AbilityCatalogReader(CachePath::abilities());
+        });
+        $this->app->singleton(AbilityCatalog::class, fn ($app) => $app->make(AbilityCatalogReader::class));
+        $this->app->singleton(AbilityCatalogWriter::class, function () {
+            return new AbilityCatalogWriter(CachePath::abilities());
+        });
+
+        $this->app->singleton(PolicyConventionResolver::class);
         $this->app->singleton(ModuleClassDiscoverer::class);
         $this->app->singleton(ReflectionMetadataReader::class);
         $this->app->singleton(ContractPathResolver::class, function () {
@@ -55,6 +61,7 @@ final class MetadataServiceProvider extends ServiceProvider
                 listenerReader: $app->make(ListenerMetadataReader::class),
                 store: $app->make(MetadataArtifactStore::class),
                 extensions: $app->make(ExtensionManager::class),
+                abilityWriter: $app->make(AbilityCatalogWriter::class),
             );
         });
 

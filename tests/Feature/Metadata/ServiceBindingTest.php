@@ -68,7 +68,8 @@ PHP);
             ->and(Artisan::call('laravarc:contract', ['action' => 'sync', 'module' => 'platform/binding']))->toBe(0)
             ->and(Artisan::call('laravarc:metadata', ['action' => 'compile', '--module' => 'platform/binding']))->toBe(0);
 
-        $services = app(\Laravarc\Core\Contracts\MetadataReader::class)->artifact()->modules['platform.binding']['services'] ?? [];
+        $entry = app(\Laravarc\Core\Discovery\ModuleRegistry::class)->manifest()->findByKey('platform.binding');
+        $services = $entry?->services ?? [];
         expect($services)->not->toBeEmpty();
 
         $sharedRoot = config('laravarc.shared_path').'/Platform/Binding/Contracts';

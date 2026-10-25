@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "task_id": "T-20261025-006",
+  "items": [
+    {
+      "id": "D1",
+      "severity": "info",
+      "type": "implementation",
+      "summary": "CatalogQuery::forModel() types string FQCN only; pass Model::class or ::class not object instance unless app wraps.",
+      "evidence": "CatalogQuery.php forModel(string ) and matchesPolicyAndModel in_array on identifiers models list",
+      "affected": {
+        "paths": [],
+        "knowledge_refs": [],
+        "plan_items": []
+      },
+      "status": "open",
+      "created_at": "2026-10-25T15:17:46.416Z",
+      "resolved_at": null,
+      "resolution": null
+    }
+  ]
+}

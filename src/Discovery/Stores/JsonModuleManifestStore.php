@@ -13,7 +13,7 @@ final class JsonModuleManifestStore extends AbstractFileModuleManifestStore
         return json_encode($manifest->toArray(), JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
     }
 
-    protected function decode(string $contents): ModuleManifest
+    protected function decode(string $contents, string $modulesRoot): ModuleManifest
     {
         $data = json_decode($contents, true, flags: JSON_THROW_ON_ERROR);
 
@@ -21,6 +21,6 @@ final class JsonModuleManifestStore extends AbstractFileModuleManifestStore
             throw new \InvalidArgumentException('Manifest JSON must decode to an array.');
         }
 
-        return ModuleManifest::fromArray($data);
+        return ModuleManifest::fromArray($data, $modulesRoot);
     }
 }

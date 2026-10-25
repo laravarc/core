@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Laravarc\Core\Metadata;
 
+use Illuminate\Support\Str;
 use Laravarc\Core\Authorization\PolicyConventionResolver;
 use Laravarc\Core\Metadata\Attributes\Feature;
 use Laravarc\Core\Metadata\Attributes\Menu;
@@ -20,19 +21,24 @@ final class ReflectionMetadataReader
     ) {}
 
     /**
+     * Returns surface metadata (per controller) plus internal authorization data
+     * used by the compiler to build the ability catalog. Only `controllers` is
+     * persisted in the metadata artifact.
+     *
      * @return array{
-     *     menus: list<array<string, mixed>>,
-     *     features: list<array<string, mixed>>,
-     *     policy: array{
-     *         model: string|null,
-     *         policy: string|null,
-     *         abilities: list<string>,
-     *         ability_overrides: array<string, array{model?: string, policy?: string}>,
-     *         controllers: array<string, array{
-     *             model: string|null,
-     *             policy: string|null,
-     *             public: bool,
-     *             methods: array<string, array{requirements: list<array{abilities: list<string>, model: string|null}>}>
+     *     controllers: array<string, array{
+     *         controller: class-string,
+     *         access: 'public'|'authenticated'|'authorized',
+     *         menu: array<string, mixed>|null,
+     *         features: list<array<string, mixed>>
+     *     }>,
+     *     authorization: array{
+     *         policy: class-string|null,
+     *         model: class-string|null,
+     *         controllers: array<class-string, array{
+     *             policy: class-string|null,
+     *             model: class-string|null,
+     *             requirements: array<string, list<array{abilities: list<string>, model: class-string|null}>>
      *         }>
      *     }
      * }
@@ -49,11 +55,10 @@ final class ReflectionMetadataReader
             $moduleEntityName,
         );
 
+        $controllers = [];
+        $authorizationControllers = [];
         $menus = [];
         $features = [];
-        $controllers = [];
-        $abilityOverrides = [];
-        $abilities = [];
 
         foreach ($this->classDiscoverer->discover($moduleRoot, $moduleNamespace) as $className) {
             if (! str_contains($className, '\\Controllers\\')) {
@@ -64,18 +69,49 @@ final class ReflectionMetadataReader
             $isPublic = $reflection->getAttributes(PublicAccess::class) !== [];
             $classDefaults = $this->classPolicyRequirements($reflection);
 
-            foreach ($reflection->getAttributes(Menu::class) as $attribute) {
-                /** @var Menu $menu */
-                $menu = $attribute->newInstance();
-                $menus[] = $this->normalizeMenu($menu, $className);
+            $menuAttributes = $reflection->getAttributes(Menu::class);
+
+            if (count($menuAttributes) > 1) {
+                throw new MetadataCompileException(sprintf(
+                    'Controller [%s] declares more than one Menu attribute; at most one is allowed.',
+                    $className,
+                ));
             }
+
+            $menu = $menuAttributes === []
+                ? null
+                : $this->normalizeMenu($menuAttributes[0]->newInstance(), $className);
+
+            $controllerFeatures = [];
 
             foreach ($reflection->getAttributes(Feature::class) as $attribute) {
                 /** @var Feature $feature */
                 $feature = $attribute->newInstance();
                 $normalized = $this->normalizeFeature($feature, $className);
-                $normalized['_controller'] = $className;
+
+                if (($normalized['key'] ?? null) === ($normalized['menu'] ?? null) && isset($normalized['menu'])) {
+                    throw new MetadataCompileException(sprintf(
+                        'Feature [%s] on controller [%s] duplicates its own menu key; the menu renders itself.',
+                        (string) ($normalized['key'] ?? ''),
+                        $className,
+                    ));
+                }
+
+                if ($menu !== null && isset($normalized['menu']) && $normalized['menu'] === $menu['key']) {
+                    throw new MetadataCompileException(sprintf(
+                        'Feature [%s] on controller [%s] cannot reference menu key [%s] declared on the same controller; declare the feature on another controller.',
+                        (string) ($normalized['key'] ?? ''),
+                        $className,
+                        (string) $menu['key'],
+                    ));
+                }
+
+                $controllerFeatures[] = $normalized;
                 $features[] = $normalized;
+            }
+
+            if ($menu !== null) {
+                $menus[] = $menu;
             }
 
             $controllerDefaults = $this->conventionResolver->resolveController(
@@ -85,7 +121,9 @@ final class ReflectionMetadataReader
                 $moduleDefaults,
             );
 
-            $controllerMethods = [];
+            $policyClass = $controllerDefaults['policy'];
+            $requirementsByMethod = [];
+            $accessKinds = [];
 
             foreach ($reflection->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
                 if ($method->getDeclaringClass()->getName() !== $className) {
@@ -104,90 +142,112 @@ final class ReflectionMetadataReader
                     moduleDefaults: $moduleDefaults,
                 );
 
-                if ($requirements !== []) {
-                    $controllerMethods[$method->getName()] = ['requirements' => $requirements];
+                if ($requirements === []) {
+                    $accessKinds[] = $isPublic ? 'public' : 'authenticated';
 
+                    continue;
+                }
+
+                $accessKinds[] = 'authorized';
+                $requirementsByMethod[$method->getName()] = $requirements;
+
+                if ($policyClass === null) {
                     foreach ($requirements as $requirement) {
-                        foreach ($requirement['abilities'] as $ability) {
-                            if (! in_array($ability, $abilities, true)) {
-                                $abilities[] = $ability;
-                            }
+                        $resolved = $requirement['model'] === null
+                            ? null
+                            : $this->conventionResolver->resolvePolicyForModel(
+                                $moduleRoot,
+                                $moduleNamespace,
+                                $requirement['model'],
+                            );
 
-                            if ($requirement['model'] !== null) {
-                                $abilityOverrides[$ability] = array_filter([
-                                    'model' => $requirement['model'],
-                                ]);
-                            }
+                        if ($resolved !== null) {
+                            $policyClass = $resolved;
+                            break;
                         }
                     }
                 }
             }
 
-            $controllers[$className] = [
+            if ($isPublic && $requirementsByMethod !== []) {
+                throw new MetadataCompileException(sprintf(
+                    'Controller [%s] mixes public access with policy requirements; access must be uniform.',
+                    $className,
+                ));
+            }
+
+            $accessKinds = array_values(array_unique($accessKinds));
+
+            if (count($accessKinds) > 1) {
+                throw new MetadataCompileException(sprintf(
+                    'Controller [%s] mixes access kinds [%s]; split the controller or align every method.',
+                    $className,
+                    implode(', ', $accessKinds),
+                ));
+            }
+
+            $access = $accessKinds[0] ?? ($isPublic ? 'public' : 'authenticated');
+            $slug = $this->controllerSlug($className);
+
+            if (isset($controllers[$slug])) {
+                throw new MetadataCompileException(sprintf(
+                    'Duplicate controller slug [%s] in module [%s] (%s and %s).',
+                    $slug,
+                    $moduleKey,
+                    $controllers[$slug]['controller'],
+                    $className,
+                ));
+            }
+
+            $controllers[$slug] = [
+                'controller' => $className,
+                'access' => $access,
+                'menu' => $menu,
+                'features' => $controllerFeatures,
+            ];
+
+            $authorizationControllers[$className] = [
+                'policy' => $policyClass,
                 'model' => $controllerDefaults['model'],
-                'policy' => $controllerDefaults['policy'],
-                'public' => $isPublic,
-                'methods' => $controllerMethods,
+                'requirements' => $requirementsByMethod,
             ];
         }
 
-        $this->mergePolicyAbilities($moduleRoot, $moduleNamespace, $moduleEntityName, $moduleDefaults, $abilities);
-
         $this->assertNoDuplicates($moduleKey, $menus, $features);
 
-        [$menus, $globalFeatures] = $this->nestFeatures($menus, $features);
+        $modulePolicy = $moduleDefaults['policy'];
 
-        sort($abilities);
+        if ($modulePolicy === null) {
+            foreach ($authorizationControllers as $controller) {
+                if ($controller['policy'] !== null) {
+                    $modulePolicy = $controller['policy'];
+                    break;
+                }
+            }
+        }
+
+        ksort($controllers);
 
         return [
-            'menus' => $menus,
-            'features' => $globalFeatures,
-            'policy' => [
+            'controllers' => $controllers,
+            'authorization' => [
+                'policy' => $modulePolicy,
                 'model' => $moduleDefaults['model'],
-                'policy' => $moduleDefaults['policy'],
-                'abilities' => $abilities,
-                'ability_overrides' => $abilityOverrides,
-                'controllers' => $controllers,
+                'controllers' => $authorizationControllers,
             ],
         ];
     }
 
-    /**
-     * @param  array{model: string|null, policy: string|null}  $moduleDefaults
-     * @param  list<string>  $abilities
-     */
-    private function mergePolicyAbilities(
-        string $moduleRoot,
-        string $moduleNamespace,
-        string $moduleEntityName,
-        array $moduleDefaults,
-        array &$abilities,
-    ): void {
-        $policyClass = $moduleDefaults['policy'];
+    public function controllerSlug(string $controllerClass): string
+    {
+        $short = class_basename($controllerClass);
 
-        if ($policyClass === null) {
-            return;
+        if (str_ends_with($short, 'Controller')) {
+            $short = substr($short, 0, -strlen('Controller'));
         }
 
-        if (! class_exists($policyClass, false) && is_file($moduleRoot.'/Policies/'.$moduleEntityName.'Policy.php')) {
-            require_once $moduleRoot.'/Policies/'.$moduleEntityName.'Policy.php';
-        }
-
-        if (! class_exists($policyClass)) {
-            return;
-        }
-
-        foreach ((new \ReflectionClass($policyClass))->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-            if ($method->getDeclaringClass()->getName() !== $policyClass || $method->getName() === '__construct') {
-                continue;
-            }
-
-            if (! in_array($method->getName(), $abilities, true)) {
-                $abilities[] = $method->getName();
-            }
-        }
+        return Str::snake($short);
     }
-
 
     /**
      * @return list<array{abilities: list<string>, model: string|null}>
@@ -325,14 +385,11 @@ final class ReflectionMetadataReader
 
         return array_filter([
             'key' => $menu->key,
+            'parent' => $menu->parent,
             'label' => $menu->label,
             'icon' => $menu->icon,
-            'group' => $menu->group,
             'order' => $menu->order,
-            'parent' => $menu->parent,
-            'visible' => $menu->visible,
             'path' => $menu->path,
-            'features' => [],
         ], static fn (mixed $value): bool => $value !== null);
     }
 
@@ -348,57 +405,30 @@ final class ReflectionMetadataReader
             ));
         }
 
+        if ($feature->placement === null || $feature->placement === '') {
+            throw new MetadataCompileException(sprintf(
+                'Feature [%s] on [%s] requires an explicit placement.',
+                $feature->key,
+                $declaredOn,
+            ));
+        }
+
+        if ($feature->menu === '') {
+            throw new MetadataCompileException(sprintf(
+                'Feature [%s] on [%s] must omit menu or provide a non-empty menu key.',
+                $feature->key,
+                $declaredOn,
+            ));
+        }
+
         return array_filter([
             'key' => $feature->key,
             'label' => $feature->label,
             'menu' => $feature->menu,
             'placement' => $feature->placement,
             'order' => $feature->order,
-            'description' => $feature->description,
             'path' => $feature->path,
         ], static fn (mixed $value): bool => $value !== null);
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $menus
-     * @param  list<array<string, mixed>>  $features
-     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
-     */
-    private function nestFeatures(array $menus, array $features): array
-    {
-        $menusByKey = [];
-
-        foreach ($menus as $menu) {
-            $menu['features'] = [];
-            $menusByKey[$menu['key']] = $menu;
-        }
-
-        $globalFeatures = [];
-
-        foreach ($features as $feature) {
-            $menuKey = $feature['menu'] ?? null;
-
-            if (is_string($menuKey) && $menuKey !== '' && isset($menusByKey[$menuKey])) {
-                $featureEntry = $feature;
-                unset($featureEntry['menu']);
-                $menusByKey[$menuKey]['features'][] = $featureEntry;
-
-                continue;
-            }
-
-            $globalFeatures[] = $feature;
-        }
-
-        $nestedMenus = array_values($menusByKey);
-
-        foreach ($nestedMenus as &$menu) {
-            usort($menu['features'], static fn (array $left, array $right): int => ($left['order'] ?? 0) <=> ($right['order'] ?? 0));
-        }
-        unset($menu);
-
-        usort($globalFeatures, static fn (array $left, array $right): int => ($left['order'] ?? 0) <=> ($right['order'] ?? 0));
-
-        return [$nestedMenus, $globalFeatures];
     }
 
     /**
@@ -445,7 +475,7 @@ final class ReflectionMetadataReader
         foreach ($entries as $entry) {
             $value = (string) ($entry[$field] ?? '');
 
-            if (isset($seen[$value])) {
+            if ($seen[$value] ?? false) {
                 throw new DuplicateMetadataException(sprintf(
                     'Duplicate %s key [%s] in module [%s].',
                     $type,

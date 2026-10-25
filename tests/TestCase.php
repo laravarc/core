@@ -8,12 +8,20 @@ use Laravarc\Core\Providers\CoreServiceProvider;
 use Laravarc\Core\Contracts\SchemaReader;
 use Laravarc\Core\Schema\ColumnTypeMapper;
 use Laravarc\Core\Schema\DatabaseSchemaReader;
+use Laravarc\Core\Support\CachePath;
 use Laravarc\Core\Tests\Fixtures\FakeSchemaIntrospector;
 use Laravarc\Core\Tests\Fixtures\FakeSchemaIntrospectorFactory;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
 {
+    protected function tearDown(): void
+    {
+        CachePath::useBaseDirectory(null);
+
+        parent::tearDown();
+    }
+
     protected function getPackageProviders($app): array
     {
         $providers = [
@@ -29,6 +37,10 @@ abstract class TestCase extends Orchestra
 
     protected function defineEnvironment($app): void
     {
+        $cacheDirectory = sys_get_temp_dir().'/arc-cache-tests-'.uniqid('', true);
+        mkdir($cacheDirectory, 0777, true);
+        CachePath::useBaseDirectory($cacheDirectory);
+
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', [
             'driver' => 'sqlite',
@@ -45,10 +57,7 @@ abstract class TestCase extends Orchestra
         $app['config']->set('laravarc.modules_path', $modulesPath);
         $app['config']->set('laravarc.shared_path', $sharedPath);
         $app['config']->set('laravarc.module_namespace', 'App\\Modules');
-        $app['config']->set('laravarc.manifest_file_path', $modulesPath.'/manifest.php');
-        $app['config']->set('laravarc.manifest_json_path', $modulesPath.'/manifest.json');
         $app['config']->set('laravarc.schema_cache_enabled', false);
-        $app['config']->set('laravarc.metadata_file_path', $modulesPath.'/metadata.php');
         $app['config']->set('laravarc.expose_metadata_endpoint', true);
         $app['config']->set('laravarc.metadata_endpoint_path', '/laravarc/metadata');
         $app['config']->set('laravarc.metadata_endpoint_middleware', []);

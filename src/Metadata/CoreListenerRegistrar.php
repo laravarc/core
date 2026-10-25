@@ -5,30 +5,19 @@ declare(strict_types=1);
 namespace Laravarc\Core\Metadata;
 
 use Illuminate\Contracts\Events\Dispatcher;
-use Laravarc\Core\Contracts\MetadataReader;
-use Laravarc\Core\Metadata\Exceptions\MetadataArtifactNotFoundException;
+use Laravarc\Core\Discovery\ModuleRegistry;
 
 final class CoreListenerRegistrar
 {
     public function __construct(
         private readonly Dispatcher $events,
-        private readonly MetadataReader $metadataReader,
+        private readonly ModuleRegistry $moduleRegistry,
     ) {}
 
     public function register(): void
     {
-        try {
-            $modules = $this->metadataReader->artifact()->modules;
-        } catch (MetadataArtifactNotFoundException) {
-            return;
-        }
-
-        foreach ($modules as $module) {
-            if (! is_array($module)) {
-                continue;
-            }
-
-            foreach ($module['listeners'] ?? [] as $binding) {
+        foreach ($this->moduleRegistry->all() as $entry) {
+            foreach ($entry->listeners as $binding) {
                 if (! is_array($binding)) {
                     continue;
                 }

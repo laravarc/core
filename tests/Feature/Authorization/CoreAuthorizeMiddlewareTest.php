@@ -3,45 +3,39 @@
 declare(strict_types=1);
 
 use App\Modules\Admin\User\Controllers\CoreAuthFixtureController;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
+use Laravarc\Core\Contracts\AbilityCatalog;
+use Laravarc\Core\Contracts\MetadataReader;
 use Laravarc\Core\Metadata\MetadataArtifact;
+use Laravarc\Core\Tests\Fixtures\FakeAbilityCatalog;
+use Laravarc\Core\Tests\Fixtures\FakeAuthUser;
 use Laravarc\Core\Tests\Fixtures\FakeMetadataReader;
-use Laravarc\Core\Tests\Fixtures\Models\AuthorizationFixtureModel;
 
 describe('laravarc.authorize middleware', function () {
     beforeEach(function () {
-        Gate::policy(AuthorizationFixtureModel::class, CoreAuthFixturePolicy::class);
-
-        app()->instance(\Laravarc\Core\Contracts\MetadataReader::class, new FakeMetadataReader(
+        app()->instance(MetadataReader::class, new FakeMetadataReader(
             new MetadataArtifact(
                 modules: [
                     'admin.user' => [
-                        'menus' => [],
-                        'features' => [],
-                        'policy' => [
-                            'model' => AuthorizationFixtureModel::class,
-                            'policy' => CoreAuthFixturePolicy::class,
-                            'abilities' => ['viewAny'],
-                            'ability_overrides' => [],
-                            'controllers' => [
-                                CoreAuthFixtureController::class => [
-                                    'model' => null,
-                                    'policy' => null,
-                                    'public' => false,
-                                    'methods' => [
-                                        'index' => [
-                                            'requirements' => [
-                                                ['abilities' => ['viewAny'], 'model' => null],
-                                            ],
-                                        ],
-                                    ],
-                                ],
+                        'controllers' => [
+                            'core_auth_fixture' => [
+                                'controller' => CoreAuthFixtureController::class,
+                                'access' => 'authorized',
+                                'menu' => null,
+                                'features' => [],
                             ],
                         ],
                     ],
                 ],
             ),
+        ));
+
+        app()->instance(AbilityCatalog::class, new FakeAbilityCatalog(
+            gates: [
+                CoreAuthFixtureController::class => [
+                    'index' => [['app.modules.admin.user.policies.core_auth_fixture_policy.viewAny']],
+                ],
+            ],
         ));
     });
 
@@ -51,6 +45,8 @@ describe('laravarc.authorize middleware', function () {
     });
 
     it('allows authorized requests to continue', function () {
+        $this->actingAs(new FakeAuthUser(['app.modules.admin.user.policies.core_auth_fixture_policy.viewAny']));
+
         Route::middleware(['laravarc.authorize'])
             ->get('/arc-auth/users', [CoreAuthFixtureController::class, 'index']);
 
@@ -61,7 +57,7 @@ describe('laravarc.authorize middleware', function () {
     });
 
     it('returns forbidden when gate denies authorization', function () {
-        Gate::policy(AuthorizationFixtureModel::class, CoreAuthFixtureDenyPolicy::class);
+        $this->actingAs(new FakeAuthUser([]));
 
         Route::middleware(['laravarc.authorize'])
             ->get('/arc-auth/deny', [CoreAuthFixtureController::class, 'index']);
@@ -70,20 +66,13 @@ describe('laravarc.authorize middleware', function () {
 
         expect($response->status())->toBe(403);
     });
+
+    it('returns forbidden for anonymous requests on gated methods', function () {
+        Route::middleware(['laravarc.authorize'])
+            ->get('/arc-auth/anonymous', [CoreAuthFixtureController::class, 'index']);
+
+        $response = $this->get('/arc-auth/anonymous');
+
+        expect($response->status())->toBe(403);
+    });
 });
-
-final class CoreAuthFixturePolicy
-{
-    public function viewAny(?object $user): bool
-    {
-        return true;
-    }
-}
-
-final class CoreAuthFixtureDenyPolicy
-{
-    public function viewAny(?object $user): bool
-    {
-        return false;
-    }
-}

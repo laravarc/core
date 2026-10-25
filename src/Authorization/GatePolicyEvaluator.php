@@ -6,18 +6,21 @@ namespace Laravarc\Core\Authorization;
 
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
+use Laravarc\Core\Contracts\AbilityCatalog;
+use Laravarc\Core\Contracts\MetadataReader;
 use Laravarc\Core\Contracts\PolicyEvaluator;
 
+/**
+ * Evaluates the generated DNF gates: [[a,b],[c,d]] passes when (a AND b) or
+ * (c AND d) are all granted to the authenticated user (super bypasses).
+ */
 final class GatePolicyEvaluator implements PolicyEvaluator
 {
-    /** @var list<string> */
-    private const CLASS_LEVEL_ABILITIES = ['viewAny', 'create'];
-
     public function __construct(
-        private readonly CompiledAuthorizationRegistry $authorizationRegistry,
+        private readonly MetadataReader $metadata,
+        private readonly AbilityCatalog $catalog,
         private readonly ControllerModuleResolver $moduleResolver,
-        private readonly PolicyTargetResolver $targetResolver,
     ) {}
 
     public function authorize(Request $request, ?string $abilityOverride = null): void
@@ -35,88 +38,83 @@ final class GatePolicyEvaluator implements PolicyEvaluator
         }
 
         $moduleKey = $this->moduleResolver->resolveFromController($controller);
-        $module = $moduleKey !== null ? $this->authorizationRegistry->module($moduleKey) : null;
+        $module = $moduleKey !== null ? $this->module($moduleKey) : null;
 
         if ($module === null) {
             throw new AuthorizationException;
         }
 
-        $controllerMeta = $this->authorizationRegistry->controller($moduleKey, $controller::class) ?? [];
-        $requirements = $abilityOverride !== null && $abilityOverride !== ''
-            ? [['abilities' => [$abilityOverride], 'model' => null]]
-            : $this->authorizationRegistry->controllerMethodRequirements($controller::class, $route->getActionMethod());
+        $slug = $this->controllerSlug($controller::class);
+        $meta = is_array($module['controllers'][$slug] ?? null) ? $module['controllers'][$slug] : null;
 
-        if ($requirements === null || $requirements === []) {
-            if ($this->shouldAllowWithoutPolicy($controllerMeta, (bool) config('laravarc.require_policy', false))) {
-                return;
-            }
-
+        if ($meta === null) {
             throw new AuthorizationException;
         }
 
-        foreach ($requirements as $requirement) {
-            if (! $this->passesRequirement($request, $requirement, $module, $controllerMeta)) {
+        $user = $request->user();
+
+        if ($user !== null && method_exists($user, 'isSuper') && $user->isSuper()) {
+            return;
+        }
+
+        $gate = $abilityOverride !== null && $abilityOverride !== ''
+            ? [[$abilityOverride]]
+            : $this->catalog->gateFor($controller::class, $route->getActionMethod());
+
+        if ($gate === null || $gate === []) {
+            if (($meta['access'] ?? null) === 'authorized') {
                 throw new AuthorizationException;
             }
+
+            return;
         }
+
+        foreach ($gate as $group) {
+            if ($this->groupPasses($user, $group)) {
+                return;
+            }
+        }
+
+        throw new AuthorizationException;
     }
 
     /**
-     * @param  array{public?: bool}  $controllerMeta
-     */
-    private function shouldAllowWithoutPolicy(array $controllerMeta, bool $requirePolicy): bool
-    {
-        if (! $requirePolicy) {
-            return true;
-        }
-
-        return (bool) ($controllerMeta['public'] ?? false);
-    }
-
-    /**
-     * @param  array{abilities: list<string>, model: string|null}  $requirement
      * @param  array<string, mixed>  $module
-     * @param  array{model?: string|null, policy?: string|null}  $controllerMeta
+     * @return array<string, mixed>
      */
-    private function passesRequirement(Request $request, array $requirement, array $module, array $controllerMeta): bool
+    private function module(string $moduleKey): ?array
     {
-        $policyMeta = is_array($module['policy'] ?? null) ? $module['policy'] : [];
+        $module = $this->metadata->artifact()->modules[$moduleKey] ?? null;
 
-        foreach ($requirement['abilities'] as $ability) {
-            $override = $policyMeta['ability_overrides'][$ability] ?? null;
-            $modelClass = $requirement['model']
-                ?? (is_array($override) && is_string($override['model'] ?? null) ? $override['model'] : null)
-                ?? ($controllerMeta['model'] ?? null)
-                ?? ($policyMeta['model'] ?? null);
-
-            if (! is_string($modelClass) || $modelClass === '') {
-                continue;
-            }
-
-            $target = $this->resolveTarget($request, $ability, $modelClass);
-
-            if ($target === null) {
-                continue;
-            }
-
-            try {
-                Gate::authorize($ability, $target);
-
-                return true;
-            } catch (AuthorizationException) {
-                continue;
-            }
-        }
-
-        return false;
+        return is_array($module) ? $module : null;
     }
 
-    private function resolveTarget(Request $request, string $ability, string $modelClass): mixed
+    /**
+     * @param  list<string>  $abilities
+     */
+    private function groupPasses(mixed $user, array $abilities): bool
     {
-        if (in_array($ability, self::CLASS_LEVEL_ABILITIES, true)) {
-            return $modelClass;
+        if ($abilities === [] || ! is_object($user) || ! method_exists($user, 'hasAbility')) {
+            return false;
         }
 
-        return $this->targetResolver->resolve($request, $ability, $modelClass);
+        foreach ($abilities as $ability) {
+            if (! $user->hasAbility($ability)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function controllerSlug(string $controllerClass): string
+    {
+        $short = class_basename($controllerClass);
+
+        if (str_ends_with($short, 'Controller')) {
+            $short = substr($short, 0, -strlen('Controller'));
+        }
+
+        return Str::snake($short);
     }
 }

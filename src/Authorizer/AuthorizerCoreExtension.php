@@ -6,7 +6,7 @@ namespace Laravarc\Core\Authorizer;
 
 use Laravarc\Authorizer\Contracts\AbilityRegistry;
 use Laravarc\Core\Contracts\CoreExtension;
-use Laravarc\Core\Contracts\MetadataReader;
+use Laravarc\Core\Contracts\AbilityCatalog;
 use Laravarc\Core\Extensions\ExtensionBootstrap;
 use Laravarc\Core\Extensions\ExtensionHook;
 use Laravarc\Core\Extensions\HookClaim;
@@ -45,7 +45,7 @@ final class AuthorizerCoreExtension implements CoreExtension
 
         $container->singleton(AbilityRegistry::class, static function ($app) {
             return new MetadataAbilityRegistry(
-                $app->make(MetadataReader::class),
+                $app->make(AbilityCatalog::class),
             );
         });
 

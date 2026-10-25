@@ -52,7 +52,6 @@ PHP);
             key: 'order',
             namespace: $namespace,
             rootPath: $moduleRoot,
-            discoveredAt: now()->toIso8601String(),
         );
 
         expect($reader->readModule($entry))->toBe([
@@ -88,7 +87,6 @@ PHP);
             key: 'invalid',
             namespace: $namespace,
             rootPath: $moduleRoot,
-            discoveredAt: now()->toIso8601String(),
         );
 
         expect(fn () => $reader->readModule($entry))

@@ -18,6 +18,7 @@ final class CoreServiceProvider extends ServiceProvider
         GenerationServiceProvider::class,
         CommandServiceProvider::class,
         MetadataServiceProvider::class,
+        CatalogServiceProvider::class,
         AuthorizationServiceProvider::class,
         RoutingServiceProvider::class,
         TranslationServiceProvider::class,

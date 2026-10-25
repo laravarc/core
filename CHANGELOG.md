@@ -5,6 +5,56 @@ All notable changes to `laravarc/core` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [2.0.0] - 2026-10-25
+
+### Added
+
+- **Catalog module** under `Laravarc\Core\Catalog`: installed signal at
+  `bootstrap/cache/laravarc/catalog-state.php`, `laravarc:catalog` install/uninstall/reset/status,
+  metadata sync into `larc_*` catalog tables, dual-backend `CatalogReader`, `Catalog` facade
+  (`forUser`, `all`/`query`, chain `forPolicy`/`forModel`/`withOrphaned`/`onlyOrphaned`, terminals
+  `manifest`/`resources`/`menus`/`features`/`toArray`), orphan tracking via `is_orphaned` and
+  `orphaned_at`, and `laravarc:cache build` catalog sync (`--no-catalog-sync`,
+  `LARAVARC_CATALOG_SYNC`). Controller mapping stays on compiled metadata
+  (`controllersForMenu`). Catalog uninstall does not modify `larc_user_abilities`. HTTP catalog
+  routes remain application-owned; SimpleAcc Menu/Feature/CatalogSyncService delegation is a
+  follow-up.
+
+### Changed
+
+- **BREAKING:** Catalog tables renamed to `larc_menus`, `larc_menu_translations`,
+  `larc_features`, `larc_feature_translations` with `uuid`, maintenance columns,
+  `parent_key`, `order` (not `sort_order`), translation-only labels, and `menu_id` FK on
+  features (manifest/API still expose `menu_key`). Removed `group` from `#[Menu]`.
+
+### Fixed
+
+- `MetadataArtifact::fromArray()` now fail-fast on unsupported or missing
+  `schema_version` and on non-array `modules`, matching manifest/ability catalog
+  behavior (P4 review gap for cache metadata).
+
+### Changed
+
+- **BREAKING:** Policy ability keys use `Support\KeyIdentifier::fromClass()` (full FQCN
+  in dotted snake_case, basename keeps the `Policy` suffix). Example:
+  `App\Modules\User\Policies\JournalPolicy` → `app.modules.user.policies.journal_policy`.
+  Replaces `Authorization\PolicyKeyDeriver` (removed). `KeyIdentifier::fromPath()` is
+  available for path-based identifiers (extension stripped only).
+- `Menu` is no longer a repeatable class attribute (`IS_REPEATABLE` removed);
+  `Feature` remains repeatable. Empty `Feature.menu` (`''`) is rejected;
+  `Feature.key` must be unique across modules and must not equal any `Menu.key`.
+  A non-empty `Feature.menu` must not equal any `Feature.key` or the `Menu.key`
+  declared on the same controller. Features that sit under a menu are declared on
+  a different controller and point `menu` at that menu key.
+- Runtime manifest, metadata, and ability catalog paths are locked to
+  `bootstrap/cache/laravarc/` (`core-manifest.php`, `core-metadata.php`,
+  `authorizer-abilities.php`). Removed config/env keys for manifest/metadata
+  store drivers and custom cache paths; providers always use the file driver via
+  `CachePath`. Schema snapshot cache remains gated by `schema_cache_enabled` and
+  writes to `storage/framework/cache/laravarc-schema/`.
+
 ## [1.7.0] - 2026-10-21
 
 ### Changed

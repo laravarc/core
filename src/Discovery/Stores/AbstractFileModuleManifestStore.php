@@ -12,6 +12,7 @@ abstract class AbstractFileModuleManifestStore implements ModuleManifestStore
 {
     public function __construct(
         protected readonly string $path,
+        protected readonly string $modulesRoot = '',
     ) {}
 
     public function isPersistent(): bool
@@ -26,7 +27,7 @@ abstract class AbstractFileModuleManifestStore implements ModuleManifestStore
         }
 
         try {
-            return $this->decode((string) file_get_contents($this->path));
+            return $this->decode((string) file_get_contents($this->path), $this->modulesRoot);
         } catch (\Throwable $exception) {
             throw new CorruptModuleManifestException(
                 sprintf('Module manifest at [%s] is corrupt. Run laravarc:cache refresh.', $this->path),
@@ -75,5 +76,5 @@ abstract class AbstractFileModuleManifestStore implements ModuleManifestStore
 
     abstract protected function encode(ModuleManifest $manifest): string;
 
-    abstract protected function decode(string $contents): ModuleManifest;
+    abstract protected function decode(string $contents, string $modulesRoot): ModuleManifest;
 }

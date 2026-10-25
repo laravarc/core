@@ -5,30 +5,19 @@ declare(strict_types=1);
 namespace Laravarc\Core\Authorization;
 
 use Illuminate\Contracts\Foundation\Application;
-use Laravarc\Core\Contracts\MetadataReader;
-use Laravarc\Core\Metadata\Exceptions\MetadataArtifactNotFoundException;
+use Laravarc\Core\Discovery\ModuleRegistry;
 
 final class CoreServiceRegistrar
 {
     public function __construct(
         private readonly Application $app,
-        private readonly MetadataReader $metadataReader,
+        private readonly ModuleRegistry $moduleRegistry,
     ) {}
 
     public function register(): void
     {
-        try {
-            $modules = $this->metadataReader->artifact()->modules;
-        } catch (MetadataArtifactNotFoundException) {
-            return;
-        }
-
-        foreach ($modules as $module) {
-            if (! is_array($module)) {
-                continue;
-            }
-
-            foreach ($module['services'] ?? [] as $binding) {
+        foreach ($this->moduleRegistry->all() as $entry) {
+            foreach ($entry->services as $binding) {
                 if (! is_array($binding)) {
                     continue;
                 }
@@ -55,7 +44,7 @@ final class CoreServiceRegistrar
     }
 
     /**
-     * Stale compiled metadata may reference a deleted Contract file; Composer
+     * Stale compiled manifest may reference a deleted Contract file; Composer
      * classmap include can throw — treat as "no binding" (YAGNI / Decision 034).
      */
     private function interfaceLoadable(string $contract): bool

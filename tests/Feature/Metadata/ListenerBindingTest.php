@@ -71,9 +71,8 @@ PHP);
         expect(Artisan::call('laravarc:cache', ['action' => 'refresh']))->toBe(0)
             ->and(Artisan::call('laravarc:metadata', ['action' => 'compile', '--module' => 'platform/listener']))->toBe(0);
 
-        $listeners = app(\Laravarc\Core\Contracts\MetadataReader::class)
-            ->artifact()
-            ->modules['platform.listener']['listeners'] ?? [];
+        $entry = app(\Laravarc\Core\Discovery\ModuleRegistry::class)->manifest()->findByKey('platform.listener');
+        $listeners = $entry?->listeners ?? [];
 
         expect($listeners)->toHaveCount(1)
             ->and($listeners[0]['event'])->toBe('App\\Shared\\Platform\\User\\Events\\UserDeletedEvent')
@@ -151,9 +150,8 @@ PHP);
         expect(Artisan::call('laravarc:cache', ['action' => 'refresh']))->toBe(0)
             ->and(Artisan::call('laravarc:metadata', ['action' => 'compile', '--module' => 'platform/no-eventer']))->toBe(0);
 
-        $listeners = app(\Laravarc\Core\Contracts\MetadataReader::class)
-            ->artifact()
-            ->modules['platform.no-eventer']['listeners'] ?? [];
+        $entry = app(\Laravarc\Core\Discovery\ModuleRegistry::class)->manifest()->findByKey('platform.no-eventer');
+        $listeners = $entry?->listeners ?? [];
 
         expect($listeners)->toHaveCount(1)
             ->and($listeners[0]['event'])->toBe('App\\Shared\\Platform\\User\\Events\\UserDeletedEvent')

@@ -5,157 +5,39 @@ declare(strict_types=1);
 namespace Laravarc\Core\Authorizer;
 
 use Laravarc\Authorizer\Contracts\AbilityRegistry;
-use Laravarc\Core\Contracts\MetadataReader;
-use Laravarc\Core\Metadata\Exceptions\MetadataArtifactNotFoundException;
-use ReflectionClass;
-use ReflectionMethod;
+use Laravarc\Core\Contracts\AbilityCatalog;
 
 /**
- * Core-enhanced AbilityRegistry — derives keys from compiled module metadata.
- *
- * Soft-depends on laravarc/authorizer (interface). Only registered when the
- * AuthorizerCoreExtension is listed in config('laravarc.extensions').
+ * Core-enhanced AbilityRegistry — reads the generated ability catalog instead of
+ * deriving keys from module metadata. Policy keys are the policy FQCN in dotted
+ * snake_case, matching laravarc/authorizer >= 2.0.
  */
 final class MetadataAbilityRegistry implements AbilityRegistry
 {
-    /**
-     * @var array{
-     *     abilities: array<string, list<string>>,
-     *     policies: array<class-string, string>,
-     *     models: array<class-string, string>
-     * }|null
-     */
-    private ?array $index = null;
-
     public function __construct(
-        private readonly MetadataReader $metadata,
+        private readonly AbilityCatalog $catalog,
     ) {}
 
     public function all(): array
     {
-        return $this->index()['abilities'];
-    }
-
-    public function keyFor(string $class): ?string
-    {
-        $index = $this->index();
-
-        return $index['policies'][$class]
-            ?? $index['models'][$class]
-            ?? null;
-    }
-
-    public function has(string $policyKey, string $ability): bool
-    {
-        $methods = $this->all()[$policyKey] ?? null;
-
-        return is_array($methods) && in_array($ability, $methods, true);
-    }
-
-    /**
-     * @return array{
-     *     abilities: array<string, list<string>>,
-     *     policies: array<class-string, string>,
-     *     models: array<class-string, string>
-     * }
-     */
-    private function index(): array
-    {
-        if ($this->index !== null) {
-            return $this->index;
-        }
-
-        /** @var array<string, list<string>> $abilities */
         $abilities = [];
-        /** @var array<class-string, string> $policies */
-        $policies = [];
-        /** @var array<class-string, string> $models */
-        $models = [];
 
-        try {
-            $modules = $this->metadata->artifact()->modules;
-        } catch (MetadataArtifactNotFoundException) {
-            $this->index = ['abilities' => [], 'policies' => [], 'models' => []];
-
-            return $this->index;
-        }
-
-        foreach ($modules as $moduleKey => $module) {
-            if (! is_array($module)) {
-                continue;
-            }
-
-            $policyMeta = is_array($module['policy'] ?? null) ? $module['policy'] : [];
-            $policyClass = is_string($policyMeta['policy'] ?? null) ? $policyMeta['policy'] : null;
-            $modelClass = is_string($policyMeta['model'] ?? null) ? $policyMeta['model'] : null;
-
-            /** @var list<string> $methods */
-            $methods = [];
-
-            if (is_array($policyMeta['abilities'] ?? null)) {
-                foreach ($policyMeta['abilities'] as $ability) {
-                    if (is_string($ability) && $ability !== '') {
-                        $methods[] = $ability;
-                    }
-                }
-            }
-
-            if ($policyClass !== null && class_exists($policyClass) && $methods === []) {
-                $methods = $this->publicMethods($policyClass);
-            }
-
-            $methods = array_values(array_unique($methods));
-            sort($methods);
-
-            if ($methods === [] && $policyClass === null) {
-                continue;
-            }
-
-            $abilities[$moduleKey] = $methods;
-
-            if ($policyClass !== null) {
-                $policies[$policyClass] = $moduleKey;
-            }
-
-            if ($modelClass !== null) {
-                $models[$modelClass] = $moduleKey;
-            }
+        foreach (array_keys($this->catalog->policies()) as $policyKey) {
+            $abilities[(string) $policyKey] = $this->catalog->abilitiesForPolicy((string) $policyKey);
         }
 
         ksort($abilities);
 
-        $this->index = [
-            'abilities' => $abilities,
-            'policies' => $policies,
-            'models' => $models,
-        ];
-
-        return $this->index;
+        return $abilities;
     }
 
-    /**
-     * @param  class-string  $policyClass
-     * @return list<string>
-     */
-    private function publicMethods(string $policyClass): array
+    public function keyFor(string $class): ?string
     {
-        $reflection = new ReflectionClass($policyClass);
-        $methods = [];
+        return $this->catalog->keyForClass($class);
+    }
 
-        foreach ($reflection->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
-            if ($method->getDeclaringClass()->getName() !== $policyClass) {
-                continue;
-            }
-
-            $name = $method->getName();
-
-            if ($name === '__construct' || str_starts_with($name, '__')) {
-                continue;
-            }
-
-            $methods[] = $name;
-        }
-
-        return $methods;
+    public function has(string $policyKey, string $ability): bool
+    {
+        return $this->catalog->has($policyKey, $ability);
     }
 }

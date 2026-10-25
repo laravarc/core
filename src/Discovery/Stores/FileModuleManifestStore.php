@@ -23,7 +23,7 @@ final class FileModuleManifestStore extends AbstractFileModuleManifestStore
                 throw new \InvalidArgumentException('Manifest file must return an array.');
             }
 
-            return ModuleManifest::fromArray($data);
+            return ModuleManifest::fromArray($data, $this->modulesRoot);
         } catch (\Throwable $exception) {
             throw new CorruptModuleManifestException(
                 sprintf('Module manifest at [%s] is corrupt. Run laravarc:cache refresh.', $this->path),
@@ -46,7 +46,7 @@ return {$exported};
 PHP;
     }
 
-    protected function decode(string $contents): ModuleManifest
+    protected function decode(string $contents, string $modulesRoot): ModuleManifest
     {
         throw new \LogicException('FileModuleManifestStore reads manifests via include(), not decode().');
     }

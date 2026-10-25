@@ -37,6 +37,29 @@ final class PolicyConventionResolver
         ];
     }
 
+    /**
+     * Resolve the policy class for a declared model using the Laravel
+     * convention `Models\\X` -> `Policies\\XPolicy` inside the same module.
+     *
+     * @param  class-string  $modelClass
+     * @return class-string|null
+     */
+    public function resolvePolicyForModel(string $moduleRoot, string $moduleNamespace, string $modelClass): ?string
+    {
+        $short = class_basename(ltrim($modelClass, '\\'));
+        $className = rtrim($moduleNamespace, '\\').'\\Policies\\'.$short.'Policy';
+
+        if (! class_exists($className, false)) {
+            $file = $moduleRoot.'/Policies/'.$short.'Policy.php';
+
+            if (is_file($file)) {
+                require_once $file;
+            }
+        }
+
+        return class_exists($className) ? $className : null;
+    }
+
     public function controllerResourceName(string $controllerClass): string
     {
         $shortName = class_basename($controllerClass);

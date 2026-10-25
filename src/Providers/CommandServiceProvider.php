@@ -18,8 +18,8 @@ use Laravarc\Core\Commands\Services\ModuleSeeder;
 use Laravarc\Core\Commands\Support\ModuleGenerationState;
 use Laravarc\Core\Commands\Support\ModuleIdentityResolver;
 use Laravarc\Core\Commands\Support\PendingGenerationStore;
-use Laravarc\Core\Console\Commands\AiRuleCommand;
 use Laravarc\Core\Console\Commands\CacheCommand;
+use Laravarc\Core\Console\Commands\CatalogCommand;
 use Laravarc\Core\Console\Commands\ContractCommand;
 use Laravarc\Core\Console\Commands\InstallCommand;
 use Laravarc\Core\Console\Commands\MetadataCommand;
@@ -95,7 +95,7 @@ final class CommandServiceProvider extends ServiceProvider
             SeedCommand::class,
             MetadataCommand::class,
             CacheCommand::class,
-            AiRuleCommand::class,
+            CatalogCommand::class,
             ContractCommand::class,
             InstallCommand::class,
         ]);

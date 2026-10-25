@@ -123,12 +123,10 @@ PHP,
             $namespace.'\\Controllers',
             'UserController',
             <<<'PHP'
-use Laravarc\Core\Metadata\Attributes\Feature;
 use Laravarc\Core\Metadata\Attributes\Menu;
 use Laravarc\Core\Metadata\Attributes\Policy;
 
 #[Menu(key: 'users.index', label: 'menu.users', icon: 'users', order: 10)]
-#[Feature(key: 'users.manage', label: 'feature.users.manage', menu: 'users.index', placement: 'tab', order: 1)]
 final class UserController
 {
     #[Policy(ability: 'viewAny')]
@@ -140,28 +138,44 @@ final class UserController
 PHP,
         );
 
+        writeMetadataFixtureClass(
+            $root,
+            'Controllers/UserManageController.php',
+            $namespace.'\\Controllers',
+            'UserManageController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'users.manage', label: 'feature.users.manage', menu: 'users.index', placement: 'tab', order: 1)]
+final class UserManageController {}
+PHP,
+        );
+
         $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
         $result = $reader->readModule($root, $namespace, 'admin.user', 'User');
 
-        expect($result['menus'])->toHaveCount(1)
-            ->and($result['menus'][0])->toMatchArray([
+        $controller = $result['controllers']['user'] ?? null;
+        $manageController = $result['controllers']['user_manage'] ?? null;
+
+        expect($controller)->not->toBeNull()
+            ->and($controller['access'])->toBe('authorized')
+            ->and($controller['menu'])->toMatchArray([
                 'key' => 'users.index',
                 'label' => 'menu.users',
                 'icon' => 'users',
                 'order' => 10,
             ])
-            ->and($result['menus'][0]['features'][0])->toMatchArray([
+            ->and($controller['features'])->toBe([])
+            ->and($manageController)->not->toBeNull()
+            ->and($manageController['features'][0])->toMatchArray([
                 'key' => 'users.manage',
                 'label' => 'feature.users.manage',
+                'menu' => 'users.index',
                 'placement' => 'tab',
                 'order' => 1,
-
             ])
-            ->and($result['features'])->toBe([])
-            ->and($result['policy']['model'])->toBe($namespace.'\\Models\\User')
-            ->and($result['policy']['policy'])->toBe($namespace.'\\Policies\\UserPolicy')
-            ->and($result['policy']['abilities'])->toContain('viewAny', 'view', 'create')
-            ->and($result['policy']['controllers'][$namespace.'\\Controllers\\UserController']['methods']['index']['requirements'][0])
+            ->and($result['authorization']['policy'])->toBe($namespace.'\\Policies\\UserPolicy')
+            ->and($result['authorization']['controllers'][$namespace.'\\Controllers\\UserController']['requirements']['index'][0])
             ->toMatchArray(['abilities' => ['viewAny'], 'model' => $namespace.'\\Models\\User']);
     });
 
@@ -201,12 +215,13 @@ PHP,
         $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
         $result = $reader->readModule($root, $namespace, 'admin.user', 'User');
 
-        expect($result['features'][0])->toMatchArray([
+        expect($result['controllers']['user']['features'][0])->toMatchArray([
             'key' => 'global.widget',
             'label' => 'feature.global.widget',
             'placement' => 'panel',
             'order' => 5,
-        ]);
+        ])
+            ->and($result['controllers']['user']['menu'])->toBeNull();
     });
 
     it('keeps cross-module feature references flat with menu retained', function () {
@@ -229,9 +244,9 @@ PHP,
         $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
         $result = $reader->readModule($root, $namespace, 'admin.brand', 'Brand');
 
-        expect($result['menus'])->toBe([])
-            ->and($result['features'])->toHaveCount(1)
-            ->and($result['features'][0])->toMatchArray([
+        expect($result['controllers']['brand']['menu'])->toBeNull()
+            ->and($result['controllers']['brand']['features'])->toHaveCount(1)
+            ->and($result['controllers']['brand']['features'][0])->toMatchArray([
                 'key' => 'brand.manage',
                 'label' => 'feature.brand.manage',
                 'menu' => 'admin.inventory.product-mutation',
@@ -311,6 +326,165 @@ PHP,
             ->toThrow(MetadataCompileException::class, 'could not resolve a target model');
     });
 
+    it('rejects controllers that mix access kinds', function () {
+        $root = metadataFixtureRoot();
+        $namespace = metadataFixtureNamespace();
+
+        writeMetadataFixtureClass(
+            $root,
+            'Models/User.php',
+            $namespace.'\\Models',
+            'User',
+            'final class User {}',
+        );
+
+        writeMetadataFixtureClass(
+            $root,
+            'Controllers/UserController.php',
+            $namespace.'\\Controllers',
+            'UserController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Policy;
+
+final class UserController
+{
+    #[Policy(ability: 'viewAny')]
+    public function index(): void {}
+
+    public function store(): void {}
+}
+PHP,
+        );
+
+        $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
+
+        expect(fn () => $reader->readModule($root, $namespace, 'admin.user', 'User'))
+            ->toThrow(MetadataCompileException::class, 'mixes access kinds');
+    });
+
+    it('rejects a feature that duplicates its own menu key', function () {
+        $root = metadataFixtureRoot();
+        $namespace = metadataFixtureNamespace();
+
+        writeMetadataFixtureClass(
+            $root,
+            'Controllers/UserController.php',
+            $namespace.'\\Controllers',
+            'UserController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+use Laravarc\Core\Metadata\Attributes\Menu;
+
+#[Menu(key: 'users.index', label: 'Users')]
+#[Feature(key: 'users.index', label: 'Users tab', menu: 'users.index', placement: 'tab')]
+final class UserController {}
+PHP,
+        );
+
+        $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
+
+        expect(fn () => $reader->readModule($root, $namespace, 'admin.user', 'User'))
+            ->toThrow(MetadataCompileException::class, 'duplicates its own menu key');
+    });
+
+    it('rejects more than one Menu attribute on a controller', function () {
+        $root = metadataFixtureRoot();
+        $namespace = metadataFixtureNamespace();
+
+        writeMetadataFixtureClass(
+            $root,
+            'Controllers/UserController.php',
+            $namespace.'\\Controllers',
+            'UserController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Menu;
+
+#[Menu(key: 'users.index', label: 'Users')]
+#[Menu(key: 'users.other', label: 'Other')]
+final class UserController {}
+PHP,
+        );
+
+        $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
+
+        expect(fn () => $reader->readModule($root, $namespace, 'admin.user', 'User'))
+            ->toThrow(MetadataCompileException::class, 'at most one is allowed');
+    });
+
+    it('rejects an empty feature menu string', function () {
+        $root = metadataFixtureRoot();
+        $namespace = metadataFixtureNamespace();
+
+        writeMetadataFixtureClass(
+            $root,
+            'Controllers/UserController.php',
+            $namespace.'\\Controllers',
+            'UserController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'users.manage', label: 'Manage', menu: '', placement: 'tab')]
+final class UserController {}
+PHP,
+        );
+
+        $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
+
+        expect(fn () => $reader->readModule($root, $namespace, 'admin.user', 'User'))
+            ->toThrow(MetadataCompileException::class, 'non-empty menu key');
+    });
+
+    it('rejects a feature menu that matches the menu key on the same controller', function () {
+        $root = metadataFixtureRoot();
+        $namespace = metadataFixtureNamespace();
+
+        writeMetadataFixtureClass(
+            $root,
+            'Controllers/UserController.php',
+            $namespace.'\\Controllers',
+            'UserController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+use Laravarc\Core\Metadata\Attributes\Menu;
+
+#[Menu(key: 'users.index', label: 'Users')]
+#[Feature(key: 'users.manage', label: 'Manage', menu: 'users.index', placement: 'tab')]
+final class UserController {}
+PHP,
+        );
+
+        $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
+
+        expect(fn () => $reader->readModule($root, $namespace, 'admin.user', 'User'))
+            ->toThrow(MetadataCompileException::class, 'users.index');
+    });
+
+    it('reads multiple Feature attributes on one controller', function () {
+        $root = metadataFixtureRoot();
+        $namespace = metadataFixtureNamespace();
+
+        writeMetadataFixtureClass(
+            $root,
+            'Controllers/UserController.php',
+            $namespace.'\\Controllers',
+            'UserController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'global.one', label: 'One', placement: 'panel', order: 1)]
+#[Feature(key: 'global.two', label: 'Two', placement: 'panel', order: 2)]
+final class UserController {}
+PHP,
+        );
+
+        $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
+        $result = $reader->readModule($root, $namespace, 'admin.user', 'User');
+
+        expect($result['controllers']['user']['features'])->toHaveCount(2)
+            ->and($result['controllers']['user']['features'][0]['key'])->toBe('global.one')
+            ->and($result['controllers']['user']['features'][1]['key'])->toBe('global.two');
+    });
+
     it('allows null module defaults when convention files are absent', function () {
         $root = metadataFixtureRoot();
         $namespace = metadataFixtureNamespace();
@@ -326,8 +500,8 @@ PHP,
         $reader = new ReflectionMetadataReader(new ModuleClassDiscoverer);
         $result = $reader->readModule($root, $namespace, 'admin.user', 'User');
 
-        expect($result['policy']['model'])->toBeNull()
-            ->and($result['policy']['policy'])->toBeNull();
+        expect($result['authorization']['model'])->toBeNull()
+            ->and($result['authorization']['policy'])->toBeNull();
     });
 });
 
@@ -357,6 +531,25 @@ describe('MetadataArtifact', function () {
 
     it('supports empty modules artifact', function () {
         expect(MetadataArtifact::empty()->toArray()['modules'])->toBe([]);
+    });
+
+    it('rejects an unsupported schema_version', function () {
+        expect(fn () => MetadataArtifact::fromArray([
+            'schema_version' => 99,
+            'modules' => [],
+        ]))->toThrow(\Laravarc\Core\Metadata\Exceptions\CorruptMetadataArtifactException::class, 'schema_version');
+    });
+
+    it('rejects a payload with a missing schema_version', function () {
+        expect(fn () => MetadataArtifact::fromArray(['modules' => []]))
+            ->toThrow(\Laravarc\Core\Metadata\Exceptions\CorruptMetadataArtifactException::class, 'missing');
+    });
+
+    it('rejects a non-array modules payload', function () {
+        expect(fn () => MetadataArtifact::fromArray([
+            'schema_version' => MetadataArtifact::SCHEMA_VERSION,
+            'modules' => 'invalid',
+        ]))->toThrow(\Laravarc\Core\Metadata\Exceptions\CorruptMetadataArtifactException::class, 'modules');
     });
 });
 
@@ -413,12 +606,23 @@ describe('CoreMetadataCompiler path fallback warnings', function () {
             'App\\Modules\\Admin\\User\\Controllers',
             'UserController',
             <<<'PHP'
-use Laravarc\Core\Metadata\Attributes\Feature;
 use Laravarc\Core\Metadata\Attributes\Menu;
 
 #[Menu(key: 'admin.users', label: 'Users')]
-#[Feature(key: 'admin.users.roles', label: 'Roles', menu: 'admin.users', placement: 'tab', order: 1)]
 final class UserController {}
+PHP,
+        );
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/User/Controllers/UserRolesController.php',
+            'App\\Modules\\Admin\\User\\Controllers',
+            'UserRolesController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'admin.users.roles', label: 'Roles', menu: 'admin.users', placement: 'tab', order: 1)]
+final class UserRolesController {}
 PHP,
         );
 
@@ -443,12 +647,23 @@ PHP,
             'App\\Modules\\Admin\\Team\\Controllers',
             'TeamController',
             <<<'PHP'
-use Laravarc\Core\Metadata\Attributes\Feature;
 use Laravarc\Core\Metadata\Attributes\Menu;
 
 #[Menu(key: 'admin.teams', label: 'Teams', path: '/teams')]
-#[Feature(key: 'admin.teams.roles', label: 'Roles', menu: 'admin.teams', placement: 'tab', order: 1, path: '/roles')]
 final class TeamController {}
+PHP,
+        );
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Team/Controllers/TeamRolesController.php',
+            'App\\Modules\\Admin\\Team\\Controllers',
+            'TeamRolesController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'admin.teams.roles', label: 'Roles', menu: 'admin.teams', placement: 'tab', order: 1, path: '/roles')]
+final class TeamRolesController {}
 PHP,
         );
 
@@ -460,9 +675,9 @@ PHP,
         $result = $compiler->compile();
 
         expect($result->warnings)->toBe([])
-            ->and($result->artifact->modules['admin.team']['menus'][0])
+            ->and($result->artifact->modules['admin.team']['controllers']['team']['menu'])
             ->toMatchArray(['key' => 'admin.teams', 'path' => '/teams'])
-            ->and($result->artifact->modules['admin.team']['menus'][0]['features'][0])
+            ->and($result->artifact->modules['admin.team']['controllers']['team_roles']['features'][0])
             ->toMatchArray(['key' => 'admin.teams.roles', 'path' => '/roles']);
     });
 
@@ -475,12 +690,23 @@ PHP,
             'App\\Modules\\Admin\\Repeat\\Controllers',
             'RepeatController',
             <<<'PHP'
-use Laravarc\Core\Metadata\Attributes\Feature;
 use Laravarc\Core\Metadata\Attributes\Menu;
 
 #[Menu(key: 'admin.repeat', label: 'Repeat', path: '/repeat')]
-#[Feature(key: 'admin.repeat.tab', label: 'Tab', menu: 'admin.repeat', placement: 'tab', path: '/repeat/tab')]
 final class RepeatController {}
+PHP,
+        );
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Repeat/Controllers/RepeatTabController.php',
+            'App\\Modules\\Admin\\Repeat\\Controllers',
+            'RepeatTabController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'admin.repeat.tab', label: 'Tab', menu: 'admin.repeat', placement: 'tab', path: '/repeat/tab')]
+final class RepeatTabController {}
 PHP,
         );
 
@@ -491,7 +717,7 @@ PHP,
 
         $result = $compiler->compile();
 
-        expect($result->artifact->modules['admin.repeat']['menus'][0]['features'][0])
+        expect($result->artifact->modules['admin.repeat']['controllers']['repeat_tab']['features'][0])
             ->toMatchArray(['key' => 'admin.repeat.tab', 'path' => '/repeat/tab']);
     });
 
@@ -504,12 +730,23 @@ PHP,
             'App\\Modules\\Admin\\Header\\Controllers',
             'HeaderController',
             <<<'PHP'
-use Laravarc\Core\Metadata\Attributes\Feature;
 use Laravarc\Core\Metadata\Attributes\Menu;
 
 #[Menu(key: 'admin.header', label: 'Header')]
-#[Feature(key: 'admin.header.tab', label: 'Tab', menu: 'admin.header', placement: 'tab', path: '/tab')]
 final class HeaderController {}
+PHP,
+        );
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Header/Controllers/HeaderTabController.php',
+            'App\\Modules\\Admin\\Header\\Controllers',
+            'HeaderTabController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'admin.header.tab', label: 'Tab', menu: 'admin.header', placement: 'tab', path: '/tab')]
+final class HeaderTabController {}
 PHP,
         );
 
@@ -562,14 +799,14 @@ PHP,
 
         expect($result->artifact->modules)->toHaveKey('admin.brand')
             ->and($result->artifact->modules)->toHaveKey('admin.product-mutation')
-            ->and($result->artifact->modules['admin.brand']['features'][0])->toMatchArray([
+            ->and($result->artifact->modules['admin.brand']['controllers']['brand']['features'][0])->toMatchArray([
                 'key' => 'admin.inventory.brand',
                 'menu' => 'admin.inventory.product-mutation',
                 'placement' => 'tab',
                 'order' => 1,
             ])
-            ->and($result->artifact->modules['admin.brand']['menus'])->toBe([])
-            ->and($result->artifact->modules['admin.product-mutation']['menus'][0]['key'])
+            ->and($result->artifact->modules['admin.brand']['controllers']['brand']['menu'])->toBeNull()
+            ->and($result->artifact->modules['admin.product-mutation']['controllers']['product_mutation']['menu']['key'])
             ->toBe('admin.inventory.product-mutation');
     });
 
@@ -584,7 +821,7 @@ PHP,
             <<<'PHP'
 use Laravarc\Core\Metadata\Attributes\Feature;
 
-#[Feature(key: 'admin.inventory.supply', label: 'feature.supply', menu: 'admin.inventory.supply-missing')]
+#[Feature(key: 'admin.inventory.supply', label: 'feature.supply', menu: 'admin.inventory.supply-missing', placement: 'tab')]
 final class SupplyController {}
 PHP,
         );
@@ -596,6 +833,120 @@ PHP,
 
         expect(fn () => $compiler->compile())
             ->toThrow(MetadataCompileException::class, 'references unknown menu key [admin.inventory.supply-missing]');
+    });
+
+    it('fails compile when the same feature key appears in two modules', function () {
+        $modulesPath = metadataFixtureRoot().'/modules';
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Alpha/Controllers/AlphaController.php',
+            'App\\Modules\\Admin\\Alpha\\Controllers',
+            'AlphaController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'shared.feature', label: 'Alpha', placement: 'panel')]
+final class AlphaController {}
+PHP,
+        );
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Beta/Controllers/BetaController.php',
+            'App\\Modules\\Admin\\Beta\\Controllers',
+            'BetaController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'shared.feature', label: 'Beta', placement: 'panel')]
+final class BetaController {}
+PHP,
+        );
+
+        $compiler = metadataCompiler(
+            moduleRegistry: emptyModuleRegistry($modulesPath),
+            store: new NullMetadataArtifactStore,
+        );
+
+        expect(fn () => $compiler->compile())
+            ->toThrow(MetadataCompileException::class, 'Duplicate feature key');
+    });
+
+    it('fails compile when a feature key equals a menu key in another module', function () {
+        $modulesPath = metadataFixtureRoot().'/modules';
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/MenuHost/Controllers/MenuHostController.php',
+            'App\\Modules\\Admin\\MenuHost\\Controllers',
+            'MenuHostController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Menu;
+
+#[Menu(key: 'admin.menu.host', label: 'Host')]
+final class MenuHostController {}
+PHP,
+        );
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/FeatureClash/Controllers/FeatureClashController.php',
+            'App\\Modules\\Admin\\FeatureClash\\Controllers',
+            'FeatureClashController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'admin.menu.host', label: 'Clash', placement: 'panel')]
+final class FeatureClashController {}
+PHP,
+        );
+
+        $compiler = metadataCompiler(
+            moduleRegistry: emptyModuleRegistry($modulesPath),
+            store: new NullMetadataArtifactStore,
+        );
+
+        expect(fn () => $compiler->compile())
+            ->toThrow(MetadataCompileException::class, 'conflicts with menu key');
+    });
+
+    it('fails compile when a feature menu equals another feature key', function () {
+        $modulesPath = metadataFixtureRoot().'/modules';
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Anchor/Controllers/AnchorController.php',
+            'App\\Modules\\Admin\\Anchor\\Controllers',
+            'AnchorController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'admin.anchor.tab', label: 'Anchor', placement: 'panel')]
+final class AnchorController {}
+PHP,
+        );
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Pointer/Controllers/PointerController.php',
+            'App\\Modules\\Admin\\Pointer\\Controllers',
+            'PointerController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'admin.pointer.child', label: 'Pointer', menu: 'admin.anchor.tab', placement: 'tab')]
+final class PointerController {}
+PHP,
+        );
+
+        $compiler = metadataCompiler(
+            moduleRegistry: emptyModuleRegistry($modulesPath),
+            store: new NullMetadataArtifactStore,
+        );
+
+        expect(fn () => $compiler->compile())
+            ->toThrow(MetadataCompileException::class, 'clashes with feature key');
     });
 });
 
@@ -629,12 +980,10 @@ describe('ServiceMetadataReader', function () {
             [
                 'concrete' => $namespace.'\\Services\\Commands\\UserCommandService',
                 'contract' => 'App\\ArcMetadataTest\\Shared\\Admin\\User\\Contracts\\UserCommandServiceContract',
-                'kind' => 'command',
             ],
             [
                 'concrete' => $namespace.'\\Services\\Queries\\UserQueryService',
                 'contract' => 'App\\ArcMetadataTest\\Shared\\Admin\\User\\Contracts\\UserQueryServiceContract',
-                'kind' => 'query',
             ],
         ]);
     });

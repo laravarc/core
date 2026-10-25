@@ -10,7 +10,7 @@ use Laravarc\Core\Routing\ModuleRouteLoader;
 describe('ModuleRouteLoader', function () {
     it('loads route files discovered in the module manifest', function () {
         $modulesPath = config('laravarc.modules_path');
-        $moduleRoot = $modulesPath.'/admin/user';
+        $moduleRoot = $modulesPath.'/Admin/User';
 
         mkdir($moduleRoot.'/'.ModuleLayout::DATABASE.'/'.ModuleLayout::MIGRATIONS, 0777, true);
         touch($moduleRoot.'/'.ModuleLayout::DATABASE.'/'.ModuleLayout::MIGRATIONS.'/2024_01_01_create_users_table.php');
@@ -41,7 +41,7 @@ PHP);
         config(['laravarc.load_module_routes' => false]);
 
         $modulesPath = config('laravarc.modules_path');
-        $moduleRoot = $modulesPath.'/admin/catalog';
+        $moduleRoot = $modulesPath.'/Admin/Catalog';
 
         mkdir($moduleRoot.'/'.ModuleLayout::DATABASE.'/'.ModuleLayout::MIGRATIONS, 0777, true);
         touch($moduleRoot.'/'.ModuleLayout::DATABASE.'/'.ModuleLayout::MIGRATIONS.'/2024_01_01_create_catalogs_table.php');
@@ -73,7 +73,7 @@ PHP);
 
     it('ignores modules without a route file', function () {
         $modulesPath = config('laravarc.modules_path');
-        $moduleRoot = $modulesPath.'/inventory/item';
+        $moduleRoot = $modulesPath.'/Inventory/Item';
 
         mkdir($moduleRoot.'/'.ModuleLayout::DATABASE.'/'.ModuleLayout::MIGRATIONS, 0777, true);
         touch($moduleRoot.'/'.ModuleLayout::DATABASE.'/'.ModuleLayout::MIGRATIONS.'/2024_01_01_create_items_table.php');
@@ -144,7 +144,7 @@ PHP);
 describe('ModuleViewLoader', function () {
     it('registers module Views/ as a Blade namespace matching the module key', function () {
         $modulesPath = config('laravarc.modules_path');
-        $moduleRoot = $modulesPath.'/admin/report';
+        $moduleRoot = $modulesPath.'/Admin/Report';
 
         mkdir($moduleRoot.'/'.ModuleLayout::DATABASE.'/'.ModuleLayout::MIGRATIONS, 0777, true);
         touch($moduleRoot.'/'.ModuleLayout::DATABASE.'/'.ModuleLayout::MIGRATIONS.'/2024_01_01_create_reports_table.php');

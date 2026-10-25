@@ -3,19 +3,15 @@
 declare(strict_types=1);
 
 use App\Modules\Admin\User\Controllers\AuthorizationFixtureController;
-use App\Modules\Admin\User\Controllers\CoreAuthFixtureController;
-use App\Modules\Admin\User\Policies\AuthorizationFixturePolicy;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Support\Facades\Gate;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Laravarc\Core\Authorization\CompiledAuthorizationRegistry;
 use Laravarc\Core\Authorization\ControllerModuleResolver;
 use Laravarc\Core\Authorization\GatePolicyEvaluator;
-use Laravarc\Core\Authorization\PolicyTargetResolver;
 use Laravarc\Core\Metadata\MetadataArtifact;
+use Laravarc\Core\Tests\Fixtures\FakeAbilityCatalog;
+use Laravarc\Core\Tests\Fixtures\FakeAuthUser;
 use Laravarc\Core\Tests\Fixtures\FakeMetadataReader;
-use Laravarc\Core\Tests\Fixtures\Models\AuthorizationFixtureModel;
-use Laravarc\Core\Tests\Fixtures\Models\AuthorizationOverrideFixtureModel;
 
 describe('ControllerModuleResolver', function () {
     it('derives module key from controller class namespace', function () {
@@ -31,339 +27,144 @@ describe('ControllerModuleResolver', function () {
 });
 
 describe('GatePolicyEvaluator', function () {
-    it('authorizes index routes via viewAny using compiled metadata', function () {
-        Gate::policy(AuthorizationFixtureModel::class, AuthorizationFixturePolicy::class);
-
-        $artifact = authorizationArtifact();
-        $evaluator = authorizationEvaluatorWithArtifact($artifact);
-
-        Route::get('/users', [AuthorizationFixtureController::class, 'index']);
-
-        $request = \Illuminate\Http\Request::create('/users', 'GET');
-        $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
-
-        expect(fn () => $evaluator->authorize($request))->not->toThrow(AuthorizationException::class);
-    });
-
-    it('requires all repeatable policy attributes to pass', function () {
-        Gate::policy(AuthorizationFixtureModel::class, AuthorizationFixtureDenyPolicy::class);
-
-        $artifact = new MetadataArtifact(
-            modules: [
-                'admin.user' => authorizationModulePayload(
-                    controllers: [
-                        AuthorizationFixtureController::class => [
-                            'model' => null,
-                            'policy' => null,
-                            'public' => false,
-                            'methods' => [
-                                'index' => [
-                                    'requirements' => [
-                                        ['abilities' => ['viewAny'], 'model' => null],
-                                        ['abilities' => ['create'], 'model' => null],
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ),
+    it('authorizes when every ability in a DNF group is granted', function () {
+        $evaluator = evaluatorWith(gates: [
+            AuthorizationFixtureController::class => [
+                'index' => [['app.modules.admin.user.policies.user_policy.viewAny']],
             ],
-        );
+        ]);
 
-        $evaluator = authorizationEvaluatorWithArtifact($artifact);
-
-        Route::get('/users-deny', [AuthorizationFixtureController::class, 'index']);
-
-        $request = \Illuminate\Http\Request::create('/users-deny', 'GET');
-        $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
-
-        expect(fn () => $evaluator->authorize($request))
-            ->toThrow(AuthorizationException::class);
-    });
-
-    it('accepts any ability listed in a single requirement', function () {
-        Gate::policy(AuthorizationFixtureModel::class, AuthorizationFixturePolicy::class);
-
-        $artifact = new MetadataArtifact(
-            modules: [
-                'admin.user' => authorizationModulePayload(
-                    controllers: [
-                        AuthorizationFixtureController::class => [
-                            'model' => null,
-                            'policy' => null,
-                            'public' => false,
-                            'methods' => [
-                                'index' => [
-                                    'requirements' => [
-                                        ['abilities' => ['create', 'viewAny'], 'model' => null],
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ),
-            ],
-        );
-
-        $evaluator = authorizationEvaluatorWithArtifact($artifact);
-
-        Route::get('/users-any', [AuthorizationFixtureController::class, 'index']);
-
-        $request = \Illuminate\Http\Request::create('/users-any', 'GET');
-        $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
-
-        expect(fn () => $evaluator->authorize($request))->not->toThrow(AuthorizationException::class);
-    });
-
-    it('denies authorization when target cannot be resolved', function () {
-        $artifact = MetadataArtifact::empty();
-        $evaluator = authorizationEvaluatorWithArtifact($artifact);
-
-        Route::get('/deny-users', [AuthorizationFixtureController::class, 'index']);
-
-        $request = \Illuminate\Http\Request::create('/deny-users', 'GET');
-        $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
-
-        expect(fn () => $evaluator->authorize($request))
-            ->toThrow(AuthorizationException::class);
-    });
-
-    it('allows public controller methods when require_policy is enabled', function () {
-        config(['laravarc.require_policy' => true]);
-
-        $artifact = new MetadataArtifact(
-            modules: [
-                'admin.user' => authorizationModulePayload(
-                    controllers: [
-                        AuthorizationFixtureController::class => [
-                            'model' => null,
-                            'policy' => null,
-                            'public' => true,
-                            'methods' => [],
-                        ],
-                    ],
-                ),
-            ],
-        );
-
-        $evaluator = authorizationEvaluatorWithArtifact($artifact);
-
-        Route::get('/public-users', [AuthorizationFixtureController::class, 'index']);
-
-        $request = \Illuminate\Http\Request::create('/public-users', 'GET');
-        $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
-
-        expect(fn () => $evaluator->authorize($request))->not->toThrow(AuthorizationException::class);
-    });
-
-    it('denies methods without policy when require_policy is enabled and controller is not public', function () {
-        config(['laravarc.require_policy' => true]);
-
-        $artifact = new MetadataArtifact(
-            modules: [
-                'admin.user' => authorizationModulePayload(
-                    controllers: [
-                        AuthorizationFixtureController::class => [
-                            'model' => null,
-                            'policy' => null,
-                            'public' => false,
-                            'methods' => [],
-                        ],
-                    ],
-                ),
-            ],
-        );
-
-        $evaluator = authorizationEvaluatorWithArtifact($artifact);
-
-        Route::get('/protected-users', [AuthorizationFixtureController::class, 'index']);
-
-        $request = \Illuminate\Http\Request::create('/protected-users', 'GET');
-        $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
-
-        expect(fn () => $evaluator->authorize($request))
-            ->toThrow(AuthorizationException::class);
-    });
-
-    it('prefers the requirement model over the module ability override in multi-policy modules', function () {
-        Gate::policy(AuthorizationFixtureModel::class, AuthorizationFixturePolicy::class);
-        Gate::policy(AuthorizationOverrideFixtureModel::class, AuthorizationOverrideDenyPolicy::class);
-
-        $artifact = new MetadataArtifact(
-            modules: [
-                'admin.user' => [
-                    'menus' => [],
-                    'features' => [],
-                    'policy' => [
-                        'model' => AuthorizationFixtureModel::class,
-                        'policy' => AuthorizationFixturePolicy::class,
-                        'abilities' => ['viewAny'],
-                        'ability_overrides' => [
-                            'viewAny' => ['model' => AuthorizationFixtureModel::class],
-                        ],
-                        'controllers' => [
-                            AuthorizationFixtureController::class => [
-                                'model' => AuthorizationFixtureModel::class,
-                                'policy' => AuthorizationFixturePolicy::class,
-                                'public' => false,
-                                'methods' => [
-                                    'index' => [
-                                        'requirements' => [
-                                            ['abilities' => ['viewAny'], 'model' => AuthorizationFixtureModel::class],
-                                        ],
-                                    ],
-                                ],
-                            ],
-                            CoreAuthFixtureController::class => [
-                                'model' => AuthorizationOverrideFixtureModel::class,
-                                'policy' => AuthorizationOverrideDenyPolicy::class,
-                                'public' => false,
-                                'methods' => [
-                                    'index' => [
-                                        'requirements' => [
-                                            ['abilities' => ['viewAny'], 'model' => AuthorizationOverrideFixtureModel::class],
-                                        ],
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        );
-
-        $evaluator = authorizationEvaluatorWithArtifact($artifact);
-
-        Route::get('/multi-policy-override', [CoreAuthFixtureController::class, 'index']);
-
-        $request = \Illuminate\Http\Request::create('/multi-policy-override', 'GET');
-        $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
-
-        expect(fn () => $evaluator->authorize($request))
-            ->toThrow(AuthorizationException::class);
-    });
-
-    it('falls back to the module ability override when the requirement model is absent', function () {
-        Gate::policy(AuthorizationFixtureModel::class, AuthorizationFixturePolicy::class);
-
-        $artifact = new MetadataArtifact(
-            modules: [
-                'admin.user' => [
-                    'menus' => [],
-                    'features' => [],
-                    'policy' => [
-                        'model' => AuthorizationFixtureModel::class,
-                        'policy' => AuthorizationFixturePolicy::class,
-                        'abilities' => ['viewAny'],
-                        'ability_overrides' => [
-                            'viewAny' => ['model' => AuthorizationFixtureModel::class],
-                        ],
-                        'controllers' => [
-                            AuthorizationFixtureController::class => [
-                                'model' => null,
-                                'policy' => null,
-                                'public' => false,
-                                'methods' => [
-                                    'index' => [
-                                        'requirements' => [
-                                            ['abilities' => ['viewAny'], 'model' => null],
-                                        ],
-                                    ],
-                                ],
-                            ],
-                        ],
-                    ],
-                ],
-            ],
-        );
-
-        $evaluator = authorizationEvaluatorWithArtifact($artifact);
-
-        Route::get('/override-fallback-users', [AuthorizationFixtureController::class, 'index']);
-
-        $request = \Illuminate\Http\Request::create('/override-fallback-users', 'GET');
-        $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
-
-        expect(fn () => $evaluator->authorize($request))
+        expect(fn () => $evaluator->authorize(requestFor('index', userWith(['app.modules.admin.user.policies.user_policy.viewAny']))))
             ->not->toThrow(AuthorizationException::class);
+    });
+
+    it('denies when an ability in the group is missing', function () {
+        $evaluator = evaluatorWith(gates: [
+            AuthorizationFixtureController::class => [
+                'index' => [['app.modules.admin.user.policies.user_policy.viewAny']],
+            ],
+        ]);
+
+        expect(fn () => $evaluator->authorize(requestFor('index', userWith([]))))
+            ->toThrow(AuthorizationException::class);
+    });
+
+    it('passes when any OR group is fully granted', function () {
+        $evaluator = evaluatorWith(gates: [
+            AuthorizationFixtureController::class => [
+                'index' => [
+                    ['policy.a', 'policy.b'],
+                    ['policy.c'],
+                ],
+            ],
+        ]);
+
+        expect(fn () => $evaluator->authorize(requestFor('index', userWith(['policy.c']))))
+            ->not->toThrow(AuthorizationException::class);
+
+        expect(fn () => $evaluator->authorize(requestFor('index', userWith(['policy.a']))))
+            ->toThrow(AuthorizationException::class);
+    });
+
+    it('bypasses gates for super users', function () {
+        $evaluator = evaluatorWith(gates: [
+            AuthorizationFixtureController::class => [
+                'index' => [['policy.missing']],
+            ],
+        ]);
+
+        expect(fn () => $evaluator->authorize(requestFor('index', userWith([], super: true))))
+            ->not->toThrow(AuthorizationException::class);
+    });
+
+    it('allows authenticated controllers without gates', function () {
+        $evaluator = evaluatorWith(access: 'authenticated', gates: []);
+
+        expect(fn () => $evaluator->authorize(requestFor('index', userWith([]))))
+            ->not->toThrow(AuthorizationException::class);
+    });
+
+    it('denies authorized controllers when no gate is compiled', function () {
+        $evaluator = evaluatorWith(access: 'authorized', gates: []);
+
+        expect(fn () => $evaluator->authorize(requestFor('index', userWith([]))))
+            ->toThrow(AuthorizationException::class);
+    });
+
+    it('treats an ability override as a single group', function () {
+        $evaluator = evaluatorWith(gates: []);
+
+        expect(fn () => $evaluator->authorize(requestFor('index', userWith(['policy.override'])), 'policy.override'))
+            ->not->toThrow(AuthorizationException::class);
+
+        expect(fn () => $evaluator->authorize(requestFor('index', userWith([])), 'policy.override'))
+            ->toThrow(AuthorizationException::class);
+    });
+
+    it('denies when the module is missing from metadata', function () {
+        $evaluator = new GatePolicyEvaluator(
+            metadata: new FakeMetadataReader(MetadataArtifact::empty()),
+            catalog: new FakeAbilityCatalog,
+            moduleResolver: moduleResolver(),
+        );
+
+        expect(fn () => $evaluator->authorize(requestFor('index', userWith([]))))
+            ->toThrow(AuthorizationException::class);
     });
 });
 
 /**
- * @param  array<string, array<string, mixed>>  $controllers
- * @return array<string, mixed>
+ * @param  array<string, array<string, list<list<string>>>>  $gates
  */
-function authorizationModulePayload(array $controllers): array
+function evaluatorWith(string $access = 'authorized', array $gates = []): GatePolicyEvaluator
 {
-    return [
-        'menus' => [],
-        'features' => [],
-        'policy' => [
-            'model' => AuthorizationFixtureModel::class,
-            'policy' => AuthorizationFixturePolicy::class,
-            'abilities' => ['viewAny', 'view', 'create'],
-            'ability_overrides' => [],
-            'controllers' => $controllers,
-        ],
-    ];
-}
-
-function authorizationArtifact(): MetadataArtifact
-{
-    return new MetadataArtifact(
+    $artifact = new MetadataArtifact(
         modules: [
-            'admin.user' => authorizationModulePayload(
-                controllers: [
-                    AuthorizationFixtureController::class => [
-                        'model' => null,
-                        'policy' => null,
-                        'public' => false,
-                        'methods' => [
-                            'index' => [
-                                'requirements' => [
-                                    ['abilities' => ['viewAny'], 'model' => null],
-                                ],
-                            ],
-                        ],
+            'admin.user' => [
+                'controllers' => [
+                    'authorization_fixture' => [
+                        'controller' => AuthorizationFixtureController::class,
+                        'access' => $access,
+                        'menu' => null,
+                        'features' => [],
                     ],
                 ],
-            ),
+            ],
         ],
     );
-}
-
-function authorizationEvaluatorWithArtifact(MetadataArtifact $artifact): GatePolicyEvaluator
-{
-    $metadataReader = new FakeMetadataReader($artifact);
 
     return new GatePolicyEvaluator(
-        authorizationRegistry: new CompiledAuthorizationRegistry($metadataReader),
-        moduleResolver: new ControllerModuleResolver(
-            modulesPath: config('laravarc.modules_path'),
-            moduleNamespace: 'App\\Modules',
-            moduleKeyResolver: app(\Laravarc\Core\Contracts\ModuleKeyResolver::class),
-        ),
-        targetResolver: new PolicyTargetResolver,
+        metadata: new FakeMetadataReader($artifact),
+        catalog: new FakeAbilityCatalog(gates: $gates),
+        moduleResolver: moduleResolver(),
     );
 }
 
-final class AuthorizationFixtureDenyPolicy
+function moduleResolver(): ControllerModuleResolver
 {
-    public function viewAny(?object $user): bool
-    {
-        return true;
-    }
-
-    public function create(?object $user): bool
-    {
-        return false;
-    }
+    return new ControllerModuleResolver(
+        modulesPath: config('laravarc.modules_path'),
+        moduleNamespace: 'App\\Modules',
+        moduleKeyResolver: app(\Laravarc\Core\Contracts\ModuleKeyResolver::class),
+    );
 }
 
-final class AuthorizationOverrideDenyPolicy
+/**
+ * @param  list<string>  $abilities
+ */
+function userWith(array $abilities, bool $super = false): FakeAuthUser
 {
-    public function viewAny(?object $user): bool
-    {
-        return false;
-    }
+    return new FakeAuthUser($abilities, $super);
+}
+
+function requestFor(string $method, FakeAuthUser $user): Request
+{
+    $uri = '/auth-fixture-'.uniqid();
+    Route::get($uri, [AuthorizationFixtureController::class, $method]);
+
+    $request = Request::create($uri, 'GET');
+    $request->setRouteResolver(fn () => Route::getRoutes()->match($request));
+    $request->setUserResolver(fn () => $user);
+
+    return $request;
 }

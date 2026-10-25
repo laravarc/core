@@ -24,7 +24,7 @@ final class ModuleScanner
     /**
      * @return list<ModuleManifestEntry>
      */
-    public function scan(string $modulesPath, string $moduleNamespace, string $discoveredAt): array
+    public function scan(string $modulesPath, string $moduleNamespace): array
     {
         if (! is_dir($modulesPath)) {
             throw new ModuleScanException(sprintf(
@@ -92,7 +92,6 @@ final class ModuleScanner
                 key: $this->moduleKeyResolver->resolve($identity),
                 namespace: $identity->namespace,
                 rootPath: $identity->rootPath,
-                discoveredAt: $discoveredAt,
                 providers: $this->serviceProviderResolver->resolve($identity),
                 middlewares: $this->middlewareResolver->resolve($identity),
             );

@@ -59,69 +59,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Module manifest store
-    |--------------------------------------------------------------------------
-    |
-    | Driver used to persist the module discovery manifest: "file", "json", or "null".
-    | The manifest lists every discovered module under modules_path.
-    |
-    */
-    'manifest_store' => env('LARAVARC_MANIFEST_STORE', 'file'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Module manifest file paths
-    |--------------------------------------------------------------------------
-    |
-    | Filesystem locations for cached module manifests (PHP and JSON drivers).
-    |
-    */
-    'manifest_file_path' => storage_path('framework/cache/laravarc-modules.manifest.php'),
-    'manifest_json_path' => storage_path('framework/cache/laravarc-modules.manifest.json'),
-
-    /*
-    |--------------------------------------------------------------------------
     | Schema cache
     |--------------------------------------------------------------------------
     |
     | When enabled, database schema snapshots are cached on disk during generation.
     | Useful in development to avoid repeated introspection; disable in CI if needed.
+    | Cache files are written under storage/framework/cache/laravarc-schema (not configurable).
     |
     */
     'schema_cache_enabled' => env('LARAVARC_SCHEMA_CACHE', false),
-    'schema_cache_path' => storage_path('framework/cache/laravarc-schema'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Metadata artifact store
-    |--------------------------------------------------------------------------
-    |
-    | Driver for compiled metadata artifacts: "file", "json", "cache", or "null".
-    | Metadata is built from controller/service attributes and consumed at boot.
-    |
-    */
-    'metadata_store' => env('LARAVARC_METADATA_STORE', 'file'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Metadata artifact file paths
-    |--------------------------------------------------------------------------
-    |
-    | Filesystem locations for compiled metadata (PHP and JSON drivers).
-    |
-    */
-    'metadata_file_path' => storage_path('framework/cache/laravarc-metadata.php'),
-    'metadata_json_path' => storage_path('framework/cache/laravarc-metadata.json'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Metadata cache key
-    |--------------------------------------------------------------------------
-    |
-    | Cache store key when metadata_store is set to "cache".
-    |
-    */
-    'metadata_cache_key' => env('LARAVARC_METADATA_CACHE_KEY', 'laravarc.metadata'),
 
     /*
     |--------------------------------------------------------------------------

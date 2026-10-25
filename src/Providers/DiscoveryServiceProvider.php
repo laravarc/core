@@ -7,7 +7,9 @@ namespace Laravarc\Core\Providers;
 use Illuminate\Support\ServiceProvider;
 use Laravarc\Core\Contracts\ModuleManifestStore;
 use Laravarc\Core\Discovery\ModuleManifestStoreFactory;
+use Laravarc\Core\Discovery\Stores\FileModuleManifestStore;
 use Laravarc\Core\Discovery\ModuleMiddlewareLoader;
+use Laravarc\Core\Support\CachePath;
 use Laravarc\Core\Discovery\ModuleMiddlewareResolver;
 use Laravarc\Core\Discovery\ModuleRegistry;
 use Laravarc\Core\Discovery\ModuleScanner;
@@ -21,12 +23,9 @@ final class DiscoveryServiceProvider extends ServiceProvider
         $this->app->singleton(ModuleManifestStoreFactory::class);
 
         $this->app->singleton(ModuleManifestStore::class, function ($app) {
-            $factory = $app->make(ModuleManifestStoreFactory::class);
-
-            return $factory->make(
-                (string) config('laravarc.manifest_store', 'file'),
-                (string) config('laravarc.manifest_file_path'),
-                (string) config('laravarc.manifest_json_path'),
+            return new FileModuleManifestStore(
+                CachePath::manifest(),
+                (string) config('laravarc.modules_path'),
             );
         });
 
@@ -47,6 +46,8 @@ final class DiscoveryServiceProvider extends ServiceProvider
                 store: $app->make(ModuleManifestStore::class),
                 modulesPath: (string) config('laravarc.modules_path'),
                 moduleNamespace: (string) config('laravarc.module_namespace'),
+                serviceReader: $app->make(\Laravarc\Core\Metadata\ServiceMetadataReader::class),
+                listenerReader: $app->make(\Laravarc\Core\Metadata\ListenerMetadataReader::class),
             );
         });
 

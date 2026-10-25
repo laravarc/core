@@ -8,6 +8,8 @@ use DateTimeImmutable;
 use Laravarc\Core\Contracts\ModuleManifestStore;
 use Laravarc\Core\Discovery\Exceptions\CorruptModuleManifestException;
 use Laravarc\Core\Discovery\Exceptions\ModuleScanException;
+use Laravarc\Core\Metadata\ListenerMetadataReader;
+use Laravarc\Core\Metadata\ServiceMetadataReader;
 
 final class ModuleRegistry
 {
@@ -16,13 +18,21 @@ final class ModuleRegistry
         private readonly ModuleManifestStore $store,
         private readonly string $modulesPath,
         private readonly string $moduleNamespace,
+        private readonly ?ServiceMetadataReader $serviceReader = null,
+        private readonly ?ListenerMetadataReader $listenerReader = null,
     ) {}
 
     public function refresh(): ModuleManifest
     {
         $timestamp = (new DateTimeImmutable)->format(DATE_ATOM);
-        $entries = $this->scanner->scan($this->modulesPath, $this->moduleNamespace, $timestamp);
-        $manifest = new ModuleManifest($entries, $timestamp);
+        $entries = $this->scanner->scan($this->modulesPath, $this->moduleNamespace);
+        $entries = array_map($this->enrich(...), $entries);
+
+        $manifest = new ModuleManifest(
+            entries: $entries,
+            refreshedAt: $timestamp,
+            fingerprint: $this->fingerprint($entries),
+        );
 
         if ($this->store->isPersistent()) {
             $this->store->write($manifest);
@@ -78,10 +88,35 @@ final class ModuleRegistry
         if ($entry === null) {
             throw new ModuleScanException(sprintf(
                 'Module not found at path [%s].',
-                trim($path, '/'),
+                $path,
             ));
         }
 
         return $entry;
+    }
+
+    private function enrich(ModuleManifestEntry $entry): ModuleManifestEntry
+    {
+        $services = $this->serviceReader?->readModule($entry) ?? [];
+        $listeners = $this->listenerReader?->readModule($entry) ?? [];
+
+        return $entry->withBindings($services, $listeners);
+    }
+
+    /**
+     * @param  list<ModuleManifestEntry>  $entries
+     */
+    private function fingerprint(array $entries): string
+    {
+        $payload = [
+            'schema' => ModuleManifest::SCHEMA_VERSION,
+            'modules_path' => $this->modulesPath,
+            'modules' => array_map(
+                static fn (ModuleManifestEntry $entry): array => $entry->toArray(),
+                $entries,
+            ),
+        ];
+
+        return 'sha256:'.hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
     }
 }

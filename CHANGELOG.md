@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `bootstrap/cache/laravarc/catalog-state.php` now nests install metadata under a
+  top-level `catalog` key. Readers accept legacy flat root keys until the next
+  write, bump, or `markInstalled`.
+
+## [2.1.0] - 2026-10-26
+
+### Added
+
+- **Catalog authorization index** at `bootstrap/cache/laravarc/catalog-authorization.php`:
+  code-derived controller → method → OR-group → `AbilityRef` trees, policy→surface
+  join, and menu/feature keys from compiled metadata plus the gate catalog. DB
+  catalog columns (custom menus, labels, status, `parent_key`, translations) merge
+  at read time through `CatalogReader`; the index file must not freeze row content.
+- **`Catalog::all()->authorization()`** (and `CatalogQuery::authorization()`)
+  returns the authorization index API (`tree()`, `abilitiesForSurfaces()`).
+
+### Changed
+
+- **`abilitiesForSurfaces()`** returns only the **first OR-group** per gated method
+  (gate-catalog declaration order). **`tree()`** keeps every OR-group with no
+  flatten. This fixes semantic over-grant versus legacy app `SurfaceCatalog`, which
+  flattened all OR-groups into one ability set.
+- **`laravarc:cache build`** compiles the authorization index after metadata and
+  ability catalogs; build exits non-zero when index compile fails and does not run
+  catalog DB sync. **`laravarc:cache clear`** removes `catalog-authorization.php`
+  and leaves `catalog-state.php` intact.
+- **`CatalogMetadataSurfaceIndex`** policy/model join delegates to
+  `CatalogAuthorizationIndex` (no runtime `strrpos` gate walk).
+- In **`APP_ENV=production`**, a missing or invalid authorization index throws
+  (`MetadataCompileException` family) and does not write a substitute file. In
+  **`local`** or **`testing`**, a missing file may compile an in-request fallback
+  from metadata plus the ability catalog; fallback failure still throws.
+
 ## [2.0.0] - 2026-10-25
 
 ### Added

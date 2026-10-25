@@ -10,6 +10,7 @@ use Laravarc\Core\Catalog\Models\CatalogFeature;
 use Laravarc\Core\Catalog\Models\CatalogFeatureTranslation;
 use Laravarc\Core\Catalog\Models\CatalogMenu;
 use Laravarc\Core\Catalog\Models\CatalogMenuTranslation;
+use Laravarc\Core\Support\CachePath;
 
 final class CatalogSynchronizer
 {
@@ -20,6 +21,7 @@ final class CatalogSynchronizer
     public function __construct(
         private readonly CatalogMetadataCollector $collector,
         private readonly CatalogState $state,
+        private readonly CatalogAuthorizationIndex $authorizationIndex,
     ) {}
 
     /**
@@ -59,6 +61,8 @@ final class CatalogSynchronizer
         if ($this->state->isInstalled()) {
             $this->state->bumpRevision();
         }
+
+        $this->authorizationIndex->write(CachePath::authorization());
 
         return $stats;
     }

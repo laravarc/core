@@ -10,6 +10,7 @@ use Laravarc\Core\Contracts\MetadataCompiler;
 use Laravarc\Core\Discovery\ModuleRegistry;
 use Laravarc\Core\Extensions\ExtensionHook;
 use Laravarc\Core\Extensions\ExtensionManager;
+use Laravarc\Core\Catalog\CatalogAuthorizationIndex;
 use Laravarc\Core\Catalog\CatalogState;
 use Laravarc\Core\Catalog\CatalogSynchronizer;
 use Laravarc\Core\Support\CachePath;
@@ -85,6 +86,9 @@ final class CacheCommand extends Command
             $metadataResult->persisted ? '' : ' (not persisted)',
         ));
 
+        app(CatalogAuthorizationIndex::class)->write(CachePath::authorization());
+        $this->line('Catalog authorization index compiled.');
+
         if ($wouldSyncCatalog) {
             $stats = app(CatalogSynchronizer::class)->sync();
             $this->line(sprintf(
@@ -116,6 +120,12 @@ final class CacheCommand extends Command
 
         if (is_file($abilityPath)) {
             @unlink($abilityPath);
+        }
+
+        $authorizationPath = CachePath::authorization();
+
+        if (is_file($authorizationPath)) {
+            @unlink($authorizationPath);
         }
 
         $extensions->dispatch(ExtensionHook::CacheClear);

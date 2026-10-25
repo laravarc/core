@@ -28,9 +28,15 @@ final class CatalogQuery
         private readonly CatalogMetadataSurfaceIndex $surfaceIndex,
         private readonly CatalogUserVisibility $visibility,
         private readonly AbilityCatalog $abilities,
+        private readonly CatalogAuthorizationIndex $authorizationIndex,
         private readonly mixed $user = null,
         private readonly bool $applyUserVisibility = false,
     ) {}
+
+    public function authorization(): CatalogAuthorizationIndex
+    {
+        return $this->authorizationIndex;
+    }
 
     public function forPolicy(string $policyClassOrKey): self
     {

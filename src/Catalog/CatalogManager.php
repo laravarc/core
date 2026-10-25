@@ -16,6 +16,7 @@ final class CatalogManager
         private readonly CatalogMetadataSurfaceIndex $surfaceIndex,
         private readonly CatalogUserVisibility $visibility,
         private readonly AbilityCatalog $abilities,
+        private readonly CatalogAuthorizationIndex $authorizationIndex,
     ) {}
 
     public function forUser(mixed $user): CatalogQuery
@@ -27,6 +28,7 @@ final class CatalogManager
             surfaceIndex: $this->surfaceIndex,
             visibility: $this->visibility,
             abilities: $this->abilities,
+            authorizationIndex: $this->authorizationIndex,
             user: $user,
             applyUserVisibility: true,
         );
@@ -41,6 +43,7 @@ final class CatalogManager
             surfaceIndex: $this->surfaceIndex,
             visibility: $this->visibility,
             abilities: $this->abilities,
+            authorizationIndex: $this->authorizationIndex,
         );
     }
 

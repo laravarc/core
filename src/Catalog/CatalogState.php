@@ -48,10 +48,13 @@ final class CatalogState
             ];
         }
 
+        $catalog = $data['catalog'] ?? null;
+        $block = is_array($catalog) ? $catalog : $data;
+
         return [
-            'installed' => (bool) ($data['installed'] ?? false),
-            'revision' => (int) ($data['revision'] ?? 0),
-            'installed_at' => isset($data['installed_at']) ? (string) $data['installed_at'] : null,
+            'installed' => (bool) ($block['installed'] ?? false),
+            'revision' => (int) ($block['revision'] ?? 0),
+            'installed_at' => isset($block['installed_at']) ? (string) $block['installed_at'] : null,
         ];
     }
 
@@ -108,9 +111,11 @@ final class CatalogState
         }
 
         $export = var_export([
-            'installed' => $payload['installed'],
-            'revision' => $payload['revision'],
-            'installed_at' => $payload['installed_at'],
+            'catalog' => [
+                'installed' => $payload['installed'],
+                'revision' => $payload['revision'],
+                'installed_at' => $payload['installed_at'],
+            ],
         ], true);
 
         file_put_contents($path, "<?php\n\ndeclare(strict_types=1);\n\nreturn {$export};\n");

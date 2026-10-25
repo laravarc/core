@@ -48,6 +48,11 @@ final class CachePath
         return self::directory().'/catalog-state.php';
     }
 
+    public static function authorization(): string
+    {
+        return self::directory().'/catalog-authorization.php';
+    }
+
     public static function schemaDirectory(): string
     {
         return rtrim(str_replace('\\', '/', storage_path('framework/cache/laravarc-schema')), '/');

@@ -22,7 +22,11 @@ use Laravarc\Core\Catalog\CatalogQuery;
  * @method static list<string> policyKeysForSurfaces(list<\Laravarc\Core\Catalog\SurfaceRef> $surfaces)
  * @method static array<string, true> policyKeySetForSurfaces(list<\Laravarc\Core\Catalog\SurfaceRef> $surfaces)
  * @method static list<string> abilityCompoundsToGrant(list<\Laravarc\Core\Catalog\SurfaceRef> $surfaces)
+ * @method static list<string> abilityCompoundsToGrantFromMenuAndFeatureKeys(list<string> $menuKeys, list<string> $featureKeys)
  * @method static list<string> abilityCompoundsForCeiling(list<\Laravarc\Core\Catalog\SurfaceRef> $surfaces)
+ * @method static list<string> abilityCompoundsForCeilingFromMenuKeys(list<string> $menuKeys)
+ * @method static list<string> abilityCompoundsForCeilingFromFeatureKeys(list<string> $featureKeys)
+ * @method static list<string> abilityCompoundsForCeilingFromMenuAndFeatureKeys(list<string> $menuKeys, list<string> $featureKeys)
  * @method static array{by_menu: array<string, list<\Laravarc\Core\Catalog\AbilityRef>>, unassigned: list<\Laravarc\Core\Catalog\AbilityRef>} groupedAbilityRefs()
  *
  * @see CatalogManager

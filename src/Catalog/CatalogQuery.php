@@ -319,6 +319,64 @@ final class CatalogQuery
     }
 
     /**
+     * @param  list<string>  $menuKeys
+     * @return list<string>
+     */
+    public function abilityCompoundsForCeilingFromMenuKeys(array $menuKeys): array
+    {
+        if ($menuKeys === []) {
+            return [];
+        }
+
+        return $this->abilityCompoundsForCeiling(SurfaceRef::fromMenuKeys($menuKeys));
+    }
+
+    /**
+     * @param  list<string>  $featureKeys
+     * @return list<string>
+     */
+    public function abilityCompoundsForCeilingFromFeatureKeys(array $featureKeys): array
+    {
+        if ($featureKeys === []) {
+            return [];
+        }
+
+        return $this->abilityCompoundsForCeiling(SurfaceRef::fromFeatureKeys($featureKeys));
+    }
+
+    /**
+     * @param  list<string>  $menuKeys
+     * @param  list<string>  $featureKeys
+     * @return list<string>
+     */
+    public function abilityCompoundsForCeilingFromMenuAndFeatureKeys(array $menuKeys, array $featureKeys): array
+    {
+        if ($menuKeys === [] && $featureKeys === []) {
+            return [];
+        }
+
+        return $this->abilityCompoundsForCeiling(
+            SurfaceRef::fromMenuAndFeatureKeys($menuKeys, $featureKeys),
+        );
+    }
+
+    /**
+     * @param  list<string>  $menuKeys
+     * @param  list<string>  $featureKeys
+     * @return list<string>
+     */
+    public function abilityCompoundsToGrantFromMenuAndFeatureKeys(array $menuKeys, array $featureKeys): array
+    {
+        if ($menuKeys === [] && $featureKeys === []) {
+            return [];
+        }
+
+        return $this->abilityCompoundsToGrant(
+            SurfaceRef::fromMenuAndFeatureKeys($menuKeys, $featureKeys),
+        );
+    }
+
+    /**
      * @return array{by_menu: array<string, list<AbilityRef>>, unassigned: list<AbilityRef>}
      */
     public function groupedAbilityRefs(): array

@@ -38,4 +38,11 @@ describe('CatalogQuery ergonomics terminals', function () {
         expect(Catalog::all()->policyKeysForSurfaces([]))->toBe([])
             ->and(Catalog::all()->policyKeySetForSurfaces([]))->toBe([]);
     });
+
+    it('returns empty ceiling terminals for empty menu or feature key lists', function () {
+        expect(Catalog::all()->abilityCompoundsForCeilingFromMenuKeys([]))->toBe([])
+            ->and(Catalog::all()->abilityCompoundsForCeilingFromFeatureKeys([]))->toBe([])
+            ->and(Catalog::all()->abilityCompoundsForCeilingFromMenuAndFeatureKeys([], []))->toBe([])
+            ->and(Catalog::all()->abilityCompoundsToGrantFromMenuAndFeatureKeys([], []))->toBe([]);
+    });
 });

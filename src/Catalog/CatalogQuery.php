@@ -203,6 +203,42 @@ final class CatalogQuery
     }
 
     /**
+     * Resolve mixed menu/feature keys against the current catalog scope (unknown keys omitted).
+     *
+     * @param  list<string>  $keys
+     * @return list<SurfaceRef>
+     */
+    public function surfaceRefsFromKeys(array $keys): array
+    {
+        if ($keys === []) {
+            return [];
+        }
+
+        $manifest = $this->manifest();
+        $menuKeys = array_fill_keys(array_keys($manifest['menus']), true);
+        $featureKeys = array_fill_keys(array_keys($manifest['features']), true);
+        $refs = [];
+
+        foreach ($keys as $key) {
+            if (! is_string($key) || $key === '') {
+                continue;
+            }
+
+            if (isset($menuKeys[$key])) {
+                $refs[] = SurfaceRef::menu($key);
+
+                continue;
+            }
+
+            if (isset($featureKeys[$key])) {
+                $refs[] = SurfaceRef::feature($key);
+            }
+        }
+
+        return $refs;
+    }
+
+    /**
      * Policy keys for every menu and feature in the current query scope (e.g. after forArea).
      *
      * @return list<string>

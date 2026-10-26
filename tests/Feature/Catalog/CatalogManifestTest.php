@@ -8,6 +8,7 @@ use Laravarc\Core\Facades\Catalog;
 use Laravarc\Core\Catalog\CatalogState;
 use Laravarc\Core\Catalog\Models\CatalogFeature;
 use Laravarc\Core\Catalog\Models\CatalogMenu;
+use Laravarc\Core\Catalog\SurfaceRef;
 use Laravarc\Core\Tests\Fixtures\FakeAbilityCatalog;
 
 describe('catalog manifest terminals', function () {
@@ -116,6 +117,20 @@ describe('catalog manifest terminals', function () {
         $allManifest = Catalog::all()->manifest();
         expect($allManifest['menus'])->toHaveKeys(['area.admin.menu', 'area.global.menu', 'area.user.menu'])
             ->and($allManifest['features'])->toHaveKeys(['area.admin.feature', 'area.user.feature']);
+    });
+
+    it('resolves mixed menu and feature keys to surface refs in catalog scope', function () {
+        $refs = Catalog::all()->surfaceRefsFromKeys([
+            'area.admin.menu',
+            'area.admin.feature',
+            'not.in.catalog',
+        ]);
+
+        expect($refs)->toHaveCount(2)
+            ->and($refs[0]->kind)->toBe(SurfaceRef::KIND_MENU)
+            ->and($refs[0]->key)->toBe('area.admin.menu')
+            ->and($refs[1]->kind)->toBe(SurfaceRef::KIND_FEATURE)
+            ->and($refs[1]->key)->toBe('area.admin.feature');
     });
 
     it('filters menus for users without abilities', function () {

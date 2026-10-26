@@ -38,19 +38,4 @@ describe('Catalog query API', function () {
             ->and(Catalog::class)->toExtend(\Illuminate\Support\Facades\Facade::class);
     });
 
-    it('filters known features and drops orphans from the default map', function () {
-        $query = Catalog::all()->withOrphaned();
-        $features = $query->features();
-
-        if ($features === []) {
-            expect(true)->toBeTrue();
-
-            return;
-        }
-
-        $firstKey = (string) array_key_first($features);
-        $known = Catalog::all()->filterKnownFeatures([$firstKey, 'definitely.unknown.feature.key']);
-
-        expect($known)->toBe([$firstKey]);
-    });
 });

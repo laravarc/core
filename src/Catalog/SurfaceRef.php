@@ -24,4 +24,51 @@ final readonly class SurfaceRef
     {
         return new self(self::KIND_FEATURE, $key);
     }
+
+    /**
+     * @param  list<string>  $menuKeys
+     * @return list<self>
+     */
+    public static function fromMenuKeys(array $menuKeys): array
+    {
+        $refs = [];
+
+        foreach ($menuKeys as $key) {
+            if (is_string($key) && $key !== '') {
+                $refs[] = self::menu($key);
+            }
+        }
+
+        return $refs;
+    }
+
+    /**
+     * @param  list<string>  $featureKeys
+     * @return list<self>
+     */
+    public static function fromFeatureKeys(array $featureKeys): array
+    {
+        $refs = [];
+
+        foreach ($featureKeys as $key) {
+            if (is_string($key) && $key !== '') {
+                $refs[] = self::feature($key);
+            }
+        }
+
+        return $refs;
+    }
+
+    /**
+     * @param  list<string>  $menuKeys
+     * @param  list<string>  $featureKeys
+     * @return list<self>
+     */
+    public static function fromMenuAndFeatureKeys(array $menuKeys, array $featureKeys): array
+    {
+        return [
+            ...self::fromMenuKeys($menuKeys),
+            ...self::fromFeatureKeys($featureKeys),
+        ];
+    }
 }

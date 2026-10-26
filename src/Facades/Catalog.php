@@ -14,6 +14,15 @@ use Laravarc\Core\Catalog\CatalogQuery;
  * @method static CatalogQuery query()
  * @method static CatalogQuery forArea(string $area)
  *
+ * CatalogQuery terminals (chain after all(), forArea(), etc.):
+ *
+ * @method static int revision()
+ * @method static list<\Laravarc\Core\Catalog\SurfaceRef> surfaceRefs()
+ * @method static list<string> policyKeys()
+ * @method static list<string> abilityCompoundsToGrant(list<\Laravarc\Core\Catalog\SurfaceRef> $surfaces)
+ * @method static list<string> abilityCompoundsForCeiling(list<\Laravarc\Core\Catalog\SurfaceRef> $surfaces)
+ * @method static array{by_menu: array<string, list<\Laravarc\Core\Catalog\AbilityRef>>, unassigned: list<\Laravarc\Core\Catalog\AbilityRef>} groupedAbilityRefs()
+ *
  * @see CatalogManager
  */
 final class Catalog extends Facade

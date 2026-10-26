@@ -184,6 +184,79 @@ final class CatalogQuery
         return $result;
     }
 
+    public function revision(): int
+    {
+        return $this->state->revision();
+    }
+
+    /**
+     * @return list<SurfaceRef>
+     */
+    public function surfaceRefs(): array
+    {
+        $manifest = $this->manifest();
+
+        return SurfaceRef::fromMenuAndFeatureKeys(
+            array_keys($manifest['menus']),
+            array_keys($manifest['features']),
+        );
+    }
+
+    /**
+     * Policy keys for every menu and feature in the current query scope (e.g. after forArea).
+     *
+     * @return list<string>
+     */
+    public function policyKeys(): array
+    {
+        $identifiers = $this->authorization()->identifiersForSurfaces($this->surfaceRefs());
+
+        return $identifiers['policies'];
+    }
+
+    /**
+     * @param  list<SurfaceRef>  $surfaces
+     * @return list<string>
+     */
+    public function abilityCompoundsToGrant(array $surfaces): array
+    {
+        if ($surfaces === []) {
+            return [];
+        }
+
+        return AbilityRef::toSortedCompounds(
+            $this->authorization()->abilitiesToGrant($surfaces),
+        );
+    }
+
+    /**
+     * @param  list<SurfaceRef>  $surfaces
+     * @return list<string>
+     */
+    public function abilityCompoundsForCeiling(array $surfaces): array
+    {
+        if ($surfaces === []) {
+            return [];
+        }
+
+        return AbilityRef::toSortedCompounds(
+            $this->authorization()->abilityCeiling($surfaces),
+        );
+    }
+
+    /**
+     * @return array{by_menu: array<string, list<AbilityRef>>, unassigned: list<AbilityRef>}
+     */
+    public function groupedAbilityRefs(): array
+    {
+        $manifest = $this->manifest();
+
+        return $this->authorization()->groupedByMenuKey(
+            array_keys($manifest['menus']),
+            array_keys($manifest['features']),
+        );
+    }
+
     /**
      * @return array{menus: array<string, array<string, mixed>>, features: array<string, array<string, mixed>>, revision: int}
      */

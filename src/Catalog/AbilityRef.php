@@ -64,4 +64,24 @@ final readonly class AbilityRef
     {
         return $this->policyKey.'.'.$this->ability;
     }
+
+    /**
+     * @param  list<self>  $refs
+     * @return list<string>
+     */
+    public static function toSortedCompounds(array $refs): array
+    {
+        $keys = [];
+
+        foreach ($refs as $ref) {
+            if ($ref instanceof self) {
+                $keys[$ref->toCompound()] = true;
+            }
+        }
+
+        $result = array_keys($keys);
+        sort($result);
+
+        return $result;
+    }
 }

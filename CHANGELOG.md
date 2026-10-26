@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-26
+
+### Added
+
+- **`SurfaceRef::fromMenuKeys` / `fromFeatureKeys` / `fromMenuAndFeatureKeys`** — batch factories for typed surfaces.
+- **`AbilityRef::toSortedCompounds`** — unique sorted compound strings from ability refs.
+- **`CatalogQuery`:** `revision()`, `surfaceRefs()`, **`policyKeys()`** (scoped manifest),
+  `abilityCompoundsToGrant`, `abilityCompoundsForCeiling`, `groupedAbilityRefs()`.
+
 ## [2.3.0] - 2026-10-26
 
 ### Added

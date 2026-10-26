@@ -13,28 +13,28 @@ final readonly class AbilityRef
         public string $ability,
     ) {}
 
-    public static function fromCompound(string $compound): self
+    public static function fromAbilityKey(string $abilityKey): self
     {
-        if ($compound === '') {
-            throw new MetadataCompileException('Ability compound string must not be empty.');
+        if ($abilityKey === '') {
+            throw new MetadataCompileException('Ability key must not be empty.');
         }
 
-        $pos = strrpos($compound, '.');
+        $pos = strrpos($abilityKey, '.');
 
         if ($pos === false) {
             throw new MetadataCompileException(sprintf(
-                'Ability compound [%s] must contain a policy key and ability separated by the last dot.',
-                $compound,
+                'Ability key [%s] must contain a policy key and ability separated by the last dot.',
+                $abilityKey,
             ));
         }
 
-        $policyKey = substr($compound, 0, $pos);
-        $ability = substr($compound, $pos + 1);
+        $policyKey = substr($abilityKey, 0, $pos);
+        $ability = substr($abilityKey, $pos + 1);
 
         if ($policyKey === '' || $ability === '') {
             throw new MetadataCompileException(sprintf(
-                'Ability compound [%s] must contain a policy key and ability separated by the last dot.',
-                $compound,
+                'Ability key [%s] must contain a policy key and ability separated by the last dot.',
+                $abilityKey,
             ));
         }
 
@@ -60,7 +60,7 @@ final readonly class AbilityRef
         return new self((string) $row['policy_key'], (string) $row['ability']);
     }
 
-    public function toCompound(): string
+    public function toAbilityKey(): string
     {
         return $this->policyKey.'.'.$this->ability;
     }
@@ -69,13 +69,13 @@ final readonly class AbilityRef
      * @param  list<self>  $refs
      * @return list<string>
      */
-    public static function toSortedCompounds(array $refs): array
+    public static function sortedAbilityKeys(array $refs): array
     {
         $keys = [];
 
         foreach ($refs as $ref) {
             if ($ref instanceof self) {
-                $keys[$ref->toCompound()] = true;
+                $keys[$ref->toAbilityKey()] = true;
             }
         }
 

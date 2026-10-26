@@ -91,17 +91,24 @@ always come from the metadata artifact (`CatalogReader::controllersForMenu`).
 
 ### Facade query API
 
-Import `Laravarc\Core\Facades\Catalog`. Entry methods (`forUser`, `all`, `query`,
-`forArea`) delegate to the bound `CatalogManager` singleton.
+Import `Laravarc\Core\Facades\Catalog`. Entry methods (`forUser`, `all`, `forArea`,
+`forMenuKeys`, `forFeatureKeys`) delegate to the bound `CatalogManager` singleton.
 Each returns a new `CatalogQuery` (manager is stateless, not Macroable; safe under Octane).
+
+**Naming:** prefix `for*` on `Catalog` / `CatalogQuery` = chain (returns the query).
+Suffix `ForX` on index terminals = read (`policiesForSurfaces`, `abilitiesForSurfaces`).
+`SurfaceRef::menu()` / `::feature()` build one ref; `::menus()` / `::features()` build lists (not chains).
 
 Chain methods (clone per call, order-independent AND for policy + model):
 
 - `forPolicy($policyClassOrKey)`
 - `forModel($model)`
+- `forMenuKeys($keys)` / `forFeatureKeys($keys)`
 - `withOrphaned()` / `onlyOrphaned()`
 
-Terminals: `manifest()`, `resources()`, `menus()`, `features(?$menuKey)`, `toArray()` (alias of `manifest()`).
+Terminals: `manifest()`, `menus()`, `features(?$menuKey)`, `abilities()`, `policies()`, `policySet()`, `abilitiesByMenu()`, `toArray()` (alias of `manifest()`).
+
+`abilities()` returns sorted ability **keys** for chained or explicit surfaces — **first OR-group only** per gated method. Full OR structure: `authorization()->tree()`. Catalog resolves keys from compiled metadata; **user grants** live in the authorizer / application book-access layer, not in Catalog.
 Default terminals omit `is_orphaned` rows. Manifest includes `menus`, `features`, and `revision` only
 (no `catalog`, `mode`, `editable`, or `routes`). Cache keys include `revision`.
 

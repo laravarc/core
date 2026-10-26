@@ -7,15 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-10-26
+
+### Changed (breaking)
+
+- **Single ability terminal:** `abilities()` only (first OR-group per method; see docblock). Removed `grantedAbilities`, `abilityCeiling`, `abilitiesToGrant`.
+- **`policiesForSurfaces()`** replaces `identifiersForSurfaces`. Menu/feature bindings: `bindingsForMenu` / `bindingsForFeature` (internal shape for `forModel()`).
+- **`SurfaceRef::menus()` / `::features()`** replace `fromMenuKeys`, `fromFeatureKeys`, `fromMenuAndFeatureKeys`.
+- **`policyKeyAliases()`** replaces `policyKeyLookupVariants`. Index **`abilitiesByMenu()`** replaces `groupedByMenuKey`.
+- Removed **`CatalogManager::query()`** and **`CatalogQuery::resources()`**.
+
+## [2.6.1] - 2026-10-26
+
+### Changed (breaking)
+
+- **`AbilityRef`:** `fromCompound` → `fromAbilityKey`, `toCompound` → `toAbilityKey`, `toSortedCompounds` → `sortedAbilityKeys`. Public API uses authorizer vocabulary, not internal “compound”.
+
+## [2.6.0] - 2026-10-26
+
+### Added
+
+- **`CatalogQuery::forMenuKeys` / `forFeatureKeys`** — static via `Catalog::forMenuKeys()`; chain then terminal.
+
+### Changed (breaking)
+
+- **Terminals renamed:** `abilities()`, `grantedAbilities()`, `policies()`, `policySet()`, `surfaces()`, `abilitiesByMenu()`, `menusForFeatures()`, `knownFeatures()`.
+- **Removed:** `surfaceRefsFromKeys`, `abilityCompoundsForCeiling`, `abilityCompoundsToGrant`, `policyKeys`, `policyKeysForSurfaces`, `policyKeySetForSurfaces`, `groupedAbilityRefs`, `filterKnownFeatures`, `menuKeysForFeatures`, `surfaceRefs`.
+
+### Removed
+
+- **`Laravarc\Core\Catalog\Catalog`** deprecated static forwarder (use `Laravarc\Core\Facades\Catalog`).
+
+### Changed
+
+- **`fromMenuKeys` / `fromFeatureKeys` renamed to `forMenuKeys` / `forFeatureKeys`** — aligned with `forArea()`.
+- **`Catalog::forMenuKeys()` / `forFeatureKeys()`** — static entry without `Catalog::all()` first.
+
 ## [2.5.4] - 2026-10-26
 
 ### Added
 
-- **`CatalogQuery::fromMenuKeys` / `fromFeatureKeys`** — chain surface keys, then call `abilityCompoundsForCeiling()` or
+- **`CatalogQuery::forMenuKeys` / `forFeatureKeys`** — chain surface keys, then call `abilityCompoundsForCeiling()` or
   `abilityCompoundsToGrant()` with no arguments (same pattern as `forArea()` → `policyKeys()`).
-- **`CatalogQuery`:** `abilityCompoundsForCeilingFromMenuKeys`, `abilityCompoundsForCeilingFromFeatureKeys`,
-  `abilityCompoundsForCeilingFromMenuAndFeatureKeys`, `abilityCompoundsToGrantFromMenuAndFeatureKeys` — one-shot string
-  key inputs without manual `SurfaceRef` wiring.
 
 ### Changed
 

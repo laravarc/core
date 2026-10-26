@@ -11,25 +11,18 @@ use Laravarc\Core\Catalog\CatalogQuery;
 /**
  * @method static CatalogQuery forUser(mixed $user)
  * @method static CatalogQuery all()
- * @method static CatalogQuery query()
  * @method static CatalogQuery forArea(string $area)
+ * @method static CatalogQuery forMenuKeys(list<string> $menuKeys)
+ * @method static CatalogQuery forFeatureKeys(list<string> $featureKeys)
  *
- * CatalogQuery terminals (chain after all(), forArea(), etc.):
+ * CatalogQuery terminals (chain after all(), forArea(), forMenuKeys(), etc.):
  *
  * @method static int revision()
- * @method static list<\Laravarc\Core\Catalog\SurfaceRef> surfaceRefs()
- * @method static list<string> policyKeys()
- * @method static list<string> policyKeysForSurfaces(list<\Laravarc\Core\Catalog\SurfaceRef> $surfaces)
- * @method static array<string, true> policyKeySetForSurfaces(list<\Laravarc\Core\Catalog\SurfaceRef> $surfaces)
- * @method static \Laravarc\Core\Catalog\CatalogQuery fromMenuKeys(list<string> $menuKeys)
- * @method static \Laravarc\Core\Catalog\CatalogQuery fromFeatureKeys(list<string> $featureKeys)
- * @method static list<string> abilityCompoundsToGrant(list<\Laravarc\Core\Catalog\SurfaceRef>|null $surfaces = null)
- * @method static list<string> abilityCompoundsToGrantFromMenuAndFeatureKeys(list<string> $menuKeys, list<string> $featureKeys)
- * @method static list<string> abilityCompoundsForCeiling(list<\Laravarc\Core\Catalog\SurfaceRef>|null $surfaces = null)
- * @method static list<string> abilityCompoundsForCeilingFromMenuKeys(list<string> $menuKeys)
- * @method static list<string> abilityCompoundsForCeilingFromFeatureKeys(list<string> $featureKeys)
- * @method static list<string> abilityCompoundsForCeilingFromMenuAndFeatureKeys(list<string> $menuKeys, list<string> $featureKeys)
- * @method static array{by_menu: array<string, list<\Laravarc\Core\Catalog\AbilityRef>>, unassigned: list<\Laravarc\Core\Catalog\AbilityRef>} groupedAbilityRefs()
+ * @method static list<\Laravarc\Core\Catalog\SurfaceRef> surfaces()
+ * @method static list<string> policies(list<\Laravarc\Core\Catalog\SurfaceRef>|null $surfaces = null)
+ * @method static array<string, true> policySet(list<\Laravarc\Core\Catalog\SurfaceRef>|null $surfaces = null)
+ * @method static list<string> abilities(list<\Laravarc\Core\Catalog\SurfaceRef>|null $surfaces = null)
+ * @method static array{by_menu: array<string, list<\Laravarc\Core\Catalog\AbilityRef>>, unassigned: list<\Laravarc\Core\Catalog\AbilityRef>} abilitiesByMenu()
  *
  * @see CatalogManager
  */

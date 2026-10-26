@@ -12,7 +12,10 @@ describe('CatalogQuery ergonomics terminals', function () {
     });
 
     it('builds surface refs from separate menu and feature key lists', function () {
-        $refs = SurfaceRef::fromMenuAndFeatureKeys(['a.menu'], ['b.feature']);
+        $refs = [
+            ...SurfaceRef::menus(['a.menu']),
+            ...SurfaceRef::features(['b.feature']),
+        ];
 
         expect($refs)->toHaveCount(2)
             ->and($refs[0]->kind)->toBe(SurfaceRef::KIND_MENU)
@@ -21,35 +24,26 @@ describe('CatalogQuery ergonomics terminals', function () {
             ->and($refs[1]->key)->toBe('b.feature');
     });
 
-    it('sorts unique ability compounds', function () {
+    it('sorts unique ability keys', function () {
         $refs = [
             new AbilityRef('demo.policies.alpha', 'update'),
             new AbilityRef('demo.policies.alpha', 'viewAny'),
             new AbilityRef('demo.policies.alpha', 'viewAny'),
         ];
 
-        expect(AbilityRef::toSortedCompounds($refs))->toBe([
+        expect(AbilityRef::sortedAbilityKeys($refs))->toBe([
             'demo.policies.alpha.update',
             'demo.policies.alpha.viewAny',
         ]);
     });
 
     it('returns empty policy terminals for empty surfaces', function () {
-        expect(Catalog::all()->policyKeysForSurfaces([]))->toBe([])
-            ->and(Catalog::all()->policyKeySetForSurfaces([]))->toBe([]);
+        expect(Catalog::all()->policies([]))->toBe([])
+            ->and(Catalog::all()->policySet([]))->toBe([]);
     });
 
-    it('returns empty grant or ceiling when no surfaces are chained or passed', function () {
-        expect(Catalog::all()->abilityCompoundsForCeiling())->toBe([])
-            ->and(Catalog::all()->abilityCompoundsToGrant())->toBe([])
-            ->and(Catalog::all()->fromMenuKeys([])->fromFeatureKeys([])->abilityCompoundsForCeiling())->toBe([])
-            ->and(Catalog::all()->fromMenuKeys([])->fromFeatureKeys([])->abilityCompoundsToGrant())->toBe([]);
-    });
-
-    it('returns empty ceiling and grant terminals for empty menu or feature key lists', function () {
-        expect(Catalog::all()->abilityCompoundsForCeilingFromMenuKeys([]))->toBe([])
-            ->and(Catalog::all()->abilityCompoundsForCeilingFromFeatureKeys([]))->toBe([])
-            ->and(Catalog::all()->abilityCompoundsForCeilingFromMenuAndFeatureKeys([], []))->toBe([])
-            ->and(Catalog::all()->abilityCompoundsToGrantFromMenuAndFeatureKeys([], []))->toBe([]);
+    it('returns empty abilities when no surfaces are chained or passed', function () {
+        expect(Catalog::all()->abilities())->toBe([])
+            ->and(Catalog::forMenuKeys([])->forFeatureKeys([])->abilities())->toBe([]);
     });
 });

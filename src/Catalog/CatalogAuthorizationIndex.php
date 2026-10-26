@@ -68,32 +68,36 @@ final class CatalogAuthorizationIndex
     }
 
     /**
+     * Ability refs for surfaces — first OR-group only per gated method.
+     *
      * @param  list<SurfaceRef>  $surfaces
      * @return list<AbilityRef>
      */
     public function abilitiesForSurfaces(array $surfaces): array
     {
-        return $this->abilityCeiling($surfaces);
-    }
-
-    /**
-     * @param  list<SurfaceRef>  $surfaces
-     * @return list<AbilityRef>
-     */
-    public function abilitiesToGrant(array $surfaces): array
-    {
         return $this->collectAbilityRefs($surfaces, firstOrGroupOnly: true);
     }
 
     /**
-     * Matches legacy SurfaceCatalog::abilityKeysForSurfaces flatten (first OR-group per method).
-     *
      * @param  list<SurfaceRef>  $surfaces
-     * @return list<AbilityRef>
+     * @return list<string>
      */
-    public function abilityCeiling(array $surfaces): array
+    public function policiesForSurfaces(array $surfaces): array
     {
-        return $this->collectAbilityRefs($surfaces, firstOrGroupOnly: true);
+        $policies = [];
+
+        foreach ($surfaces as $surface) {
+            $bindings = $this->surfaceBindings($surface->kind, $surface->key);
+
+            foreach ($bindings['policies'] as $policy) {
+                $policies[$policy] = true;
+            }
+        }
+
+        $result = array_keys($policies);
+        sort($result);
+
+        return $result;
     }
 
     /**
@@ -134,33 +138,6 @@ final class CatalogAuthorizationIndex
         return [
             'menus' => array_keys($menus),
             'features' => array_keys($features),
-        ];
-    }
-
-    /**
-     * @param  list<SurfaceRef>  $surfaces
-     * @return array{policies: list<string>, models: list<string>}
-     */
-    public function identifiersForSurfaces(array $surfaces): array
-    {
-        $policies = [];
-        $models = [];
-
-        foreach ($surfaces as $surface) {
-            $identifiers = $this->identifiersForSurface($surface->kind, $surface->key);
-
-            foreach ($identifiers['policies'] as $policy) {
-                $policies[$policy] = true;
-            }
-
-            foreach ($identifiers['models'] as $model) {
-                $models[$model] = true;
-            }
-        }
-
-        return [
-            'policies' => array_keys($policies),
-            'models' => array_keys($models),
         ];
     }
 
@@ -206,7 +183,7 @@ final class CatalogAuthorizationIndex
             return $entry;
         }
 
-        foreach (self::policyKeyLookupVariants($policyKey) as $variant) {
+        foreach (self::policyKeyAliases($policyKey) as $variant) {
             if ($variant === $policyKey) {
                 continue;
             }
@@ -226,7 +203,7 @@ final class CatalogAuthorizationIndex
      *
      * @return list<string>
      */
-    public static function policyKeyLookupVariants(string $policyKey): array
+    public static function policyKeyAliases(string $policyKey): array
     {
         $variants = [$policyKey];
 
@@ -247,7 +224,7 @@ final class CatalogAuthorizationIndex
      * @param  list<string>  $featureKeys
      * @return array{by_menu: array<string, list<AbilityRef>>, unassigned: list<AbilityRef>}
      */
-    public function groupedByMenuKey(array $menuKeys, array $featureKeys): array
+    public function abilitiesByMenu(array $menuKeys, array $featureKeys): array
     {
         $byMenu = [];
         $unassigned = [];
@@ -257,7 +234,7 @@ final class CatalogAuthorizationIndex
                 continue;
             }
 
-            $refs = $this->abilitiesToGrant([SurfaceRef::menu($menuKey)]);
+            $refs = $this->abilitiesForSurfaces([SurfaceRef::menu($menuKey)]);
 
             if ($refs !== []) {
                 $byMenu[$menuKey] = $refs;
@@ -269,7 +246,7 @@ final class CatalogAuthorizationIndex
                 continue;
             }
 
-            $refs = $this->abilitiesToGrant([SurfaceRef::feature($featureKey)]);
+            $refs = $this->abilitiesForSurfaces([SurfaceRef::feature($featureKey)]);
 
             if ($refs === []) {
                 continue;
@@ -328,13 +305,13 @@ final class CatalogAuthorizationIndex
                             }
 
                             $ref = AbilityRef::fromStored($row);
-                            $compound = $ref->toCompound();
+                            $abilityKey = $ref->toAbilityKey();
 
-                            if (isset($seen[$compound])) {
+                            if (isset($seen[$abilityKey])) {
                                 continue;
                             }
 
-                            $seen[$compound] = true;
+                            $seen[$abilityKey] = true;
                             $result[] = $ref;
                         }
                     }
@@ -348,17 +325,17 @@ final class CatalogAuthorizationIndex
     /**
      * @return array{policies: list<string>, models: list<string>}
      */
-    public function identifiersForMenu(string $menuKey): array
+    public function bindingsForMenu(string $menuKey): array
     {
-        return $this->identifiersForSurface(SurfaceRef::KIND_MENU, $menuKey);
+        return $this->surfaceBindings(SurfaceRef::KIND_MENU, $menuKey);
     }
 
     /**
      * @return array{policies: list<string>, models: list<string>}
      */
-    public function identifiersForFeature(string $featureKey): array
+    public function bindingsForFeature(string $featureKey): array
     {
-        return $this->identifiersForSurface(SurfaceRef::KIND_FEATURE, $featureKey);
+        return $this->surfaceBindings(SurfaceRef::KIND_FEATURE, $featureKey);
     }
 
     public function write(?string $path = null): void
@@ -491,12 +468,12 @@ final class CatalogAuthorizationIndex
 
                     $storedGroup = [];
 
-                    foreach ($group as $compound) {
-                        if (! is_string($compound) || $compound === '') {
+                    foreach ($group as $abilityKey) {
+                        if (! is_string($abilityKey) || $abilityKey === '') {
                             continue;
                         }
 
-                        $storedGroup[] = AbilityRef::fromCompound($compound)->toArray();
+                        $storedGroup[] = AbilityRef::fromAbilityKey($abilityKey)->toArray();
                     }
 
                     if ($storedGroup !== []) {
@@ -697,7 +674,7 @@ final class CatalogAuthorizationIndex
     /**
      * @return array{policies: list<string>, models: list<string>}
      */
-    private function identifiersForSurface(string $kind, string $key): array
+    private function surfaceBindings(string $kind, string $key): array
     {
         $payload = $this->payload();
         $lookupKey = $kind.':'.$key;

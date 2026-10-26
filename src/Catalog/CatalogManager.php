@@ -47,13 +47,24 @@ final class CatalogManager
         );
     }
 
-    public function query(): CatalogQuery
-    {
-        return $this->all();
-    }
-
     public function forArea(string $area): CatalogQuery
     {
         return $this->all()->forArea($area);
+    }
+
+    /**
+     * @param  list<string>  $menuKeys
+     */
+    public function forMenuKeys(array $menuKeys): CatalogQuery
+    {
+        return $this->all()->forMenuKeys($menuKeys);
+    }
+
+    /**
+     * @param  list<string>  $featureKeys
+     */
+    public function forFeatureKeys(array $featureKeys): CatalogQuery
+    {
+        return $this->all()->forFeatureKeys($featureKeys);
     }
 }

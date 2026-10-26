@@ -15,7 +15,7 @@ final class CatalogMetadataSurfaceIndex
      */
     public function forMenu(string $menuKey): array
     {
-        return $this->authorizationIndex->identifiersForMenu($menuKey);
+        return $this->authorizationIndex->bindingsForMenu($menuKey);
     }
 
     /**
@@ -23,6 +23,6 @@ final class CatalogMetadataSurfaceIndex
      */
     public function forFeature(string $featureKey): array
     {
-        return $this->authorizationIndex->identifiersForFeature($featureKey);
+        return $this->authorizationIndex->bindingsForFeature($featureKey);
     }
 }

@@ -57,14 +57,7 @@ describe('CatalogAuthorizationIndex', function () {
             ->and($surfaceAbilities[1]->ability)->toBe('update')
             ->and(collect($surfaceAbilities)->contains(fn (AbilityRef $ref): bool => $ref->ability === 'delete'))->toBeFalse();
 
-        $surface = [SurfaceRef::menu('demo.menu')];
-        $grant = $index->abilitiesToGrant($surface);
-        $ceiling = $index->abilityCeiling($surface);
-
-        expect($grant)->toHaveCount(2)
-            ->and($ceiling)->toHaveCount(2)
-            ->and(collect($ceiling)->pluck('ability')->all())->toEqual(collect($grant)->pluck('ability')->all())
-            ->and(collect($ceiling)->contains(fn (AbilityRef $ref): bool => $ref->ability === 'delete'))->toBeFalse();
+        expect($index->abilitiesForSurfaces([SurfaceRef::menu('demo.menu')]))->toHaveCount(2);
     });
 
     it('reads policy surfaces without walking forPolicy', function () {
@@ -132,16 +125,16 @@ describe('CatalogAuthorizationIndex', function () {
     });
 
     it('exposes policy key lookup variants for authorizer and index forms', function () {
-        expect(CatalogAuthorizationIndex::policyKeyLookupVariants('demo.policies.alias_policy'))->toEqual([
+        expect(CatalogAuthorizationIndex::policyKeyAliases('demo.policies.alias_policy'))->toEqual([
             'demo.policies.alias_policy',
             'demo.policies.alias',
-        ])->and(CatalogAuthorizationIndex::policyKeyLookupVariants('demo.policies.alias'))->toEqual([
+        ])->and(CatalogAuthorizationIndex::policyKeyAliases('demo.policies.alias'))->toEqual([
             'demo.policies.alias',
             'demo.policies.alias_policy',
         ]);
     });
 
-    it('identifiersForSurfaces returns index policy keys with _policy suffix', function () {
+    it('policiesForSurfaces returns index policy keys with _policy suffix', function () {
         $controller = 'App\\Modules\\Demo\\Controllers\\AliasPolicyController';
 
         $metadata = new FakeMetadataReader(new MetadataArtifact(modules: [
@@ -167,18 +160,18 @@ describe('CatalogAuthorizationIndex', function () {
         );
 
         $index = new CatalogAuthorizationIndex($metadata, $abilities);
-        $policies = $index->identifiersForSurfaces([SurfaceRef::menu('alias.menu')])['policies'];
+        $policies = $index->policiesForSurfaces([SurfaceRef::menu('alias.menu')]);
 
         expect($policies)->toContain('demo.policies.alias_policy');
 
         $set = [];
         foreach ($policies as $policyKey) {
-            foreach (CatalogAuthorizationIndex::policyKeyLookupVariants($policyKey) as $variant) {
+            foreach (CatalogAuthorizationIndex::policyKeyAliases($policyKey) as $variant) {
                 $set[$variant] = true;
             }
         }
 
-        $authorizerPolicyKey = AbilityRef::fromCompound('demo.policies.alias.viewAny')->policyKey;
+        $authorizerPolicyKey = AbilityRef::fromAbilityKey('demo.policies.alias.viewAny')->policyKey;
 
         expect(isset($set[$authorizerPolicyKey]))->toBeTrue();
     });

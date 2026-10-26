@@ -70,7 +70,7 @@ final class CatalogQuery
     /**
      * @param  list<string>  $menuKeys
      */
-    public function fromMenuKeys(array $menuKeys): self
+    public function forMenuKeys(array $menuKeys): self
     {
         if ($menuKeys === []) {
             return $this;
@@ -79,7 +79,7 @@ final class CatalogQuery
         $clone = clone $this;
         $clone->chainedSurfaceRefs = [
             ...$clone->chainedSurfaceRefs,
-            ...SurfaceRef::fromMenuKeys($menuKeys),
+            ...SurfaceRef::menus($menuKeys),
         ];
 
         return $clone;
@@ -88,7 +88,7 @@ final class CatalogQuery
     /**
      * @param  list<string>  $featureKeys
      */
-    public function fromFeatureKeys(array $featureKeys): self
+    public function forFeatureKeys(array $featureKeys): self
     {
         if ($featureKeys === []) {
             return $this;
@@ -97,7 +97,7 @@ final class CatalogQuery
         $clone = clone $this;
         $clone->chainedSurfaceRefs = [
             ...$clone->chainedSurfaceRefs,
-            ...SurfaceRef::fromFeatureKeys($featureKeys),
+            ...SurfaceRef::features($featureKeys),
         ];
 
         return $clone;
@@ -133,19 +133,6 @@ final class CatalogQuery
     }
 
     /**
-     * @return array{menus: array<string, array<string, mixed>>, features: array<string, array<string, mixed>>}
-     */
-    public function resources(): array
-    {
-        $manifest = $this->manifest();
-
-        return [
-            'menus' => $manifest['menus'],
-            'features' => $manifest['features'],
-        ];
-    }
-
-    /**
      * @return array<string, array<string, mixed>>
      */
     public function menus(): array
@@ -174,7 +161,7 @@ final class CatalogQuery
      * @param  list<string>  $featureKeys
      * @return list<string>
      */
-    public function filterKnownFeatures(array $featureKeys): array
+    public function knownFeatures(array $featureKeys): array
     {
         $known = $this->features();
 
@@ -202,7 +189,7 @@ final class CatalogQuery
      * @param  list<string>  $featureKeys
      * @return array<string, string|null>
      */
-    public function menuKeysForFeatures(array $featureKeys): array
+    public function menusForFeatures(array $featureKeys): array
     {
         $known = $this->features();
         $result = [];
@@ -231,95 +218,45 @@ final class CatalogQuery
     /**
      * @return list<SurfaceRef>
      */
-    public function surfaceRefs(): array
+    public function surfaces(): array
     {
         $manifest = $this->manifest();
 
-        return SurfaceRef::fromMenuAndFeatureKeys(
-            array_keys($manifest['menus']),
-            array_keys($manifest['features']),
-        );
+        return [
+            ...SurfaceRef::menus(array_keys($manifest['menus'])),
+            ...SurfaceRef::features(array_keys($manifest['features'])),
+        ];
     }
 
     /**
-     * Resolve mixed menu/feature keys against the current catalog scope (unknown keys omitted).
+     * Policy keys for surfaces in scope: chained forMenuKeys/forFeatureKeys, explicit refs, or full manifest.
      *
-     * @param  list<string>  $keys
-     * @return list<SurfaceRef>
+     * @param  list<SurfaceRef>|null  $surfaces
+     * @return list<string>
      */
-    public function surfaceRefsFromKeys(array $keys): array
+    public function policies(?array $surfaces = null): array
     {
-        if ($keys === []) {
+        $refs = $this->resolvePolicySurfaceRefs($surfaces);
+
+        if ($refs === []) {
             return [];
         }
 
-        $manifest = $this->manifest();
-        $menuKeys = array_fill_keys(array_keys($manifest['menus']), true);
-        $featureKeys = array_fill_keys(array_keys($manifest['features']), true);
-        $refs = [];
-
-        foreach ($keys as $key) {
-            if (! is_string($key) || $key === '') {
-                continue;
-            }
-
-            if (isset($menuKeys[$key])) {
-                $refs[] = SurfaceRef::menu($key);
-
-                continue;
-            }
-
-            if (isset($featureKeys[$key])) {
-                $refs[] = SurfaceRef::feature($key);
-            }
-        }
-
-        return $refs;
+        return $this->authorization()->policiesForSurfaces($refs);
     }
 
     /**
-     * Policy keys for every menu and feature in the current query scope (e.g. after forArea).
+     * Policy lookup set (authorizer ↔ index `_policy` aliases) for surfaces in scope.
      *
-     * @return list<string>
-     */
-    public function policyKeys(): array
-    {
-        $identifiers = $this->authorization()->identifiersForSurfaces($this->surfaceRefs());
-
-        return $identifiers['policies'];
-    }
-
-    /**
-     * @param  list<SurfaceRef>  $surfaces
-     * @return list<string>
-     */
-    public function policyKeysForSurfaces(array $surfaces): array
-    {
-        if ($surfaces === []) {
-            return [];
-        }
-
-        $identifiers = $this->authorization()->identifiersForSurfaces($surfaces);
-
-        return $identifiers['policies'];
-    }
-
-    /**
-     * Lookup set for policies linked to surfaces, including authorizer ↔ index `_policy` aliases.
-     *
-     * @param  list<SurfaceRef>  $surfaces
+     * @param  list<SurfaceRef>|null  $surfaces
      * @return array<string, true>
      */
-    public function policyKeySetForSurfaces(array $surfaces): array
+    public function policySet(?array $surfaces = null): array
     {
-        if ($surfaces === []) {
-            return [];
-        }
-
         $set = [];
 
-        foreach ($this->policyKeysForSurfaces($surfaces) as $policyKey) {
-            foreach (CatalogAuthorizationIndex::policyKeyLookupVariants($policyKey) as $variant) {
+        foreach ($this->policies($surfaces) as $policyKey) {
+            foreach (CatalogAuthorizationIndex::policyKeyAliases($policyKey) as $variant) {
                 $set[$variant] = true;
             }
         }
@@ -328,10 +265,15 @@ final class CatalogQuery
     }
 
     /**
-     * @param  list<SurfaceRef>|null  $surfaces  Pass refs for one-shot use, or chain fromMenuKeys/fromFeatureKeys and omit.
+     * Sorted ability keys for chained menu/feature keys or explicit surfaces.
+     *
+     * Uses the **first OR-group only** per gated controller method (not a union of every OR-group).
+     * Full OR structure: `authorization()->tree()`.
+     *
+     * @param  list<SurfaceRef>|null  $surfaces
      * @return list<string>
      */
-    public function abilityCompoundsToGrant(?array $surfaces = null): array
+    public function abilities(?array $surfaces = null): array
     {
         $refs = $surfaces ?? $this->chainedSurfaceRefs;
 
@@ -339,94 +281,19 @@ final class CatalogQuery
             return [];
         }
 
-        return AbilityRef::toSortedCompounds(
-            $this->authorization()->abilitiesToGrant($refs),
-        );
-    }
-
-    /**
-     * @param  list<SurfaceRef>|null  $surfaces  Pass refs for one-shot use, or chain fromMenuKeys/fromFeatureKeys and omit.
-     * @return list<string>
-     */
-    public function abilityCompoundsForCeiling(?array $surfaces = null): array
-    {
-        $refs = $surfaces ?? $this->chainedSurfaceRefs;
-
-        if ($refs === []) {
-            return [];
-        }
-
-        return AbilityRef::toSortedCompounds(
-            $this->authorization()->abilityCeiling($refs),
-        );
-    }
-
-    /**
-     * @param  list<string>  $menuKeys
-     * @return list<string>
-     */
-    public function abilityCompoundsForCeilingFromMenuKeys(array $menuKeys): array
-    {
-        if ($menuKeys === []) {
-            return [];
-        }
-
-        return $this->abilityCompoundsForCeiling(SurfaceRef::fromMenuKeys($menuKeys));
-    }
-
-    /**
-     * @param  list<string>  $featureKeys
-     * @return list<string>
-     */
-    public function abilityCompoundsForCeilingFromFeatureKeys(array $featureKeys): array
-    {
-        if ($featureKeys === []) {
-            return [];
-        }
-
-        return $this->abilityCompoundsForCeiling(SurfaceRef::fromFeatureKeys($featureKeys));
-    }
-
-    /**
-     * @param  list<string>  $menuKeys
-     * @param  list<string>  $featureKeys
-     * @return list<string>
-     */
-    public function abilityCompoundsForCeilingFromMenuAndFeatureKeys(array $menuKeys, array $featureKeys): array
-    {
-        if ($menuKeys === [] && $featureKeys === []) {
-            return [];
-        }
-
-        return $this->abilityCompoundsForCeiling(
-            SurfaceRef::fromMenuAndFeatureKeys($menuKeys, $featureKeys),
-        );
-    }
-
-    /**
-     * @param  list<string>  $menuKeys
-     * @param  list<string>  $featureKeys
-     * @return list<string>
-     */
-    public function abilityCompoundsToGrantFromMenuAndFeatureKeys(array $menuKeys, array $featureKeys): array
-    {
-        if ($menuKeys === [] && $featureKeys === []) {
-            return [];
-        }
-
-        return $this->abilityCompoundsToGrant(
-            SurfaceRef::fromMenuAndFeatureKeys($menuKeys, $featureKeys),
+        return AbilityRef::sortedAbilityKeys(
+            $this->authorization()->abilitiesForSurfaces($refs),
         );
     }
 
     /**
      * @return array{by_menu: array<string, list<AbilityRef>>, unassigned: list<AbilityRef>}
      */
-    public function groupedAbilityRefs(): array
+    public function abilitiesByMenu(): array
     {
         $manifest = $this->manifest();
 
-        return $this->authorization()->groupedByMenuKey(
+        return $this->authorization()->abilitiesByMenu(
             array_keys($manifest['menus']),
             array_keys($manifest['features']),
         );
@@ -533,20 +400,20 @@ final class CatalogQuery
     }
 
     /**
-     * @param  array{policies: list<string>, models: list<string>}  $identifiers
+     * @param  array{policies: list<string>, models: list<string>}  $bindings
      */
-    private function matchesPolicyAndModel(array $identifiers): bool
+    private function matchesPolicyAndModel(array $bindings): bool
     {
         $policyOk = true;
         $modelOk = true;
 
         if ($this->policyConstraint !== null) {
             $policyKey = $this->normalizePolicyKey($this->policyConstraint);
-            $policyOk = in_array($policyKey, $identifiers['policies'], true);
+            $policyOk = in_array($policyKey, $bindings['policies'], true);
         }
 
         if ($this->modelConstraint !== null) {
-            $modelOk = in_array($this->modelConstraint, $identifiers['models'], true);
+            $modelOk = in_array($this->modelConstraint, $bindings['models'], true);
         }
 
         return $policyOk && $modelOk;
@@ -557,6 +424,23 @@ final class CatalogQuery
         $resolved = $this->abilities->keyForClass($policyClassOrKey);
 
         return $resolved ?? $policyClassOrKey;
+    }
+
+    /**
+     * @param  list<SurfaceRef>|null  $surfaces
+     * @return list<SurfaceRef>
+     */
+    private function resolvePolicySurfaceRefs(?array $surfaces): array
+    {
+        if ($surfaces !== null) {
+            return $surfaces;
+        }
+
+        if ($this->chainedSurfaceRefs !== []) {
+            return $this->chainedSurfaceRefs;
+        }
+
+        return $this->surfaces();
     }
 
     private function cacheKey(): string

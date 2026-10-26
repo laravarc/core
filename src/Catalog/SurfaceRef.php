@@ -29,7 +29,7 @@ final readonly class SurfaceRef
      * @param  list<string>  $menuKeys
      * @return list<self>
      */
-    public static function fromMenuKeys(array $menuKeys): array
+    public static function menus(array $menuKeys): array
     {
         $refs = [];
 
@@ -46,7 +46,7 @@ final readonly class SurfaceRef
      * @param  list<string>  $featureKeys
      * @return list<self>
      */
-    public static function fromFeatureKeys(array $featureKeys): array
+    public static function features(array $featureKeys): array
     {
         $refs = [];
 
@@ -57,18 +57,5 @@ final readonly class SurfaceRef
         }
 
         return $refs;
-    }
-
-    /**
-     * @param  list<string>  $menuKeys
-     * @param  list<string>  $featureKeys
-     * @return list<self>
-     */
-    public static function fromMenuAndFeatureKeys(array $menuKeys, array $featureKeys): array
-    {
-        return [
-            ...self::fromMenuKeys($menuKeys),
-            ...self::fromFeatureKeys($featureKeys),
-        ];
     }
 }

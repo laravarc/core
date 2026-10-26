@@ -383,6 +383,8 @@ final class ReflectionMetadataReader
             ));
         }
 
+        $area = $this->normalizeArea($menu->area, $declaredOn, 'Menu');
+
         return array_filter([
             'key' => $menu->key,
             'parent' => $menu->parent,
@@ -390,6 +392,7 @@ final class ReflectionMetadataReader
             'icon' => $menu->icon,
             'order' => $menu->order,
             'path' => $menu->path,
+            'area' => $area,
         ], static fn (mixed $value): bool => $value !== null);
     }
 
@@ -421,6 +424,8 @@ final class ReflectionMetadataReader
             ));
         }
 
+        $area = $this->normalizeArea($feature->area, $declaredOn, 'Feature');
+
         return array_filter([
             'key' => $feature->key,
             'label' => $feature->label,
@@ -428,7 +433,31 @@ final class ReflectionMetadataReader
             'placement' => $feature->placement,
             'order' => $feature->order,
             'path' => $feature->path,
+            'area' => $area,
         ], static fn (mixed $value): bool => $value !== null);
+    }
+
+    private function normalizeArea(?string $area, string $declaredOn, string $kind): ?string
+    {
+        if ($area === null) {
+            return null;
+        }
+
+        $trimmed = trim($area);
+
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if (strlen($trimmed) > 64) {
+            throw new MetadataCompileException(sprintf(
+                '%s metadata on [%s] area must be at most 64 characters.',
+                $kind,
+                $declaredOn,
+            ));
+        }
+
+        return $trimmed;
     }
 
     /**

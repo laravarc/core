@@ -80,13 +80,13 @@ final class MetadataCatalogReader implements CatalogReader
     {
         return [
             'key' => $key,
-            'area' => null,
+            'area' => $this->metadataArea($menu),
             'label' => (string) ($menu['label'] ?? $key),
             'parent_key' => isset($menu['parent']) ? (string) $menu['parent'] : null,
             'path' => isset($menu['path']) ? (string) $menu['path'] : null,
             'icon' => isset($menu['icon']) ? (string) $menu['icon'] : null,
             'order' => (int) ($menu['order'] ?? 0),
-            'status' => ($menu['visible'] ?? null) === false ? 'disabled' : 'enabled',
+            'status' => 'enabled',
             'source' => CatalogSynchronizer::SOURCE_METADATA,
             'translations' => [],
             'is_orphaned' => false,
@@ -104,7 +104,7 @@ final class MetadataCatalogReader implements CatalogReader
 
         return [
             'key' => $key,
-            'area' => null,
+            'area' => $this->metadataArea($feature),
             'label' => (string) ($feature['label'] ?? $key),
             'menu' => is_string($menuKey) && $menuKey !== '' ? $menuKey : null,
             'path' => isset($feature['path']) ? (string) $feature['path'] : null,
@@ -116,5 +116,15 @@ final class MetadataCatalogReader implements CatalogReader
             'is_orphaned' => false,
             'orphaned_at' => null,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function metadataArea(array $row): ?string
+    {
+        $area = $row['area'] ?? null;
+
+        return is_string($area) && $area !== '' ? $area : null;
     }
 }

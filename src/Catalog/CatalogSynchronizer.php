@@ -78,6 +78,7 @@ final class CatalogSynchronizer
         if ($existing === null) {
             $row = CatalogMenu::query()->create([
                 'key' => $key,
+                'area' => $this->metadataArea($menu),
                 'parent_key' => isset($menu['parent']) ? (string) $menu['parent'] : null,
                 'source' => self::SOURCE_METADATA,
                 'icon' => isset($menu['icon']) ? (string) $menu['icon'] : null,
@@ -85,7 +86,7 @@ final class CatalogSynchronizer
                 'path_locked' => false,
                 'order' => (int) ($menu['order'] ?? 0),
                 'order_locked' => false,
-                'status' => ($menu['visible'] ?? null) === false ? 'disabled' : 'enabled',
+                'status' => 'enabled',
                 'is_orphaned' => false,
                 'orphaned_at' => null,
             ]);
@@ -125,6 +126,12 @@ final class CatalogSynchronizer
             }
         }
 
+        $area = $this->metadataArea($menu);
+        if ($existing->area !== $area) {
+            $existing->area = $area;
+            $dirty = true;
+        }
+
         if ($existing->is_orphaned) {
             $existing->is_orphaned = false;
             $existing->orphaned_at = null;
@@ -152,6 +159,7 @@ final class CatalogSynchronizer
         if ($existing === null) {
             $row = CatalogFeature::query()->create([
                 'key' => $key,
+                'area' => $this->metadataArea($feature),
                 'menu_id' => $this->resolveMenuId($menuKey),
                 'source' => self::SOURCE_METADATA,
                 'path' => isset($feature['path']) ? (string) $feature['path'] : null,
@@ -197,6 +205,12 @@ final class CatalogSynchronizer
             $dirty = true;
         }
 
+        $area = $this->metadataArea($feature);
+        if ($existing->area !== $area) {
+            $existing->area = $area;
+            $dirty = true;
+        }
+
         if ($existing->is_orphaned) {
             $existing->is_orphaned = false;
             $existing->orphaned_at = null;
@@ -208,6 +222,16 @@ final class CatalogSynchronizer
             $existing->save();
             $stats['updated']++;
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function metadataArea(array $row): ?string
+    {
+        $area = $row['area'] ?? null;
+
+        return is_string($area) && $area !== '' ? $area : null;
     }
 
     /**

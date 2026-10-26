@@ -15,7 +15,7 @@ final class Feature
         public ?string $menu = null,
         public ?string $placement = null,
         public ?int $order = null,
-        public ?string $description = null,
         public ?string $path = null,
+        public ?string $area = null,
     ) {}
 }

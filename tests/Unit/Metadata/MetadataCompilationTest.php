@@ -988,6 +988,48 @@ describe('ServiceMetadataReader', function () {
         ]);
     });
 
+    it('persists optional area on menu and feature metadata', function () {
+        $modulesPath = metadataFixtureRoot().'/modules';
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Area/Controllers/AreaMenuController.php',
+            'App\\Modules\\Admin\\Area\\Controllers',
+            'AreaMenuController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Menu;
+
+#[Menu(key: 'admin.area.sample', label: 'Sample', area: 'admin')]
+final class AreaMenuController {}
+PHP,
+        );
+
+        writeMetadataFixtureClass(
+            $modulesPath,
+            'Admin/Area/Controllers/AreaFeatureController.php',
+            'App\\Modules\\Admin\\Area\\Controllers',
+            'AreaFeatureController',
+            <<<'PHP'
+use Laravarc\Core\Metadata\Attributes\Feature;
+
+#[Feature(key: 'admin.area.sample.tab', label: 'Tab', menu: 'admin.area.sample', placement: 'tab', area: 'admin')]
+final class AreaFeatureController {}
+PHP,
+        );
+
+        $compiler = metadataCompiler(
+            moduleRegistry: emptyModuleRegistry($modulesPath),
+            store: new NullMetadataArtifactStore,
+        );
+
+        $artifact = $compiler->compile()->artifact;
+        $module = $artifact->modules['admin.area'] ?? null;
+
+        expect($module)->not->toBeNull()
+            ->and($module['controllers']['area_menu']['menu']['area'] ?? null)->toBe('admin')
+            ->and($module['controllers']['area_feature']['features'][0]['area'] ?? null)->toBe('admin');
+    });
+
     it('omits bindings when only the concrete class exists', function () {
         $modulesPath = metadataFixtureRoot().'/modules';
         $moduleRoot = $modulesPath.'/Admin/Report';

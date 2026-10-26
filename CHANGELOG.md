@@ -7,13 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [2.5.3] - 2026-10-26
+## [2.5.4] - 2026-10-26
 
 ### Added
 
+- **`CatalogQuery::fromMenuKeys` / `fromFeatureKeys`** — chain surface keys, then call `abilityCompoundsForCeiling()` or
+  `abilityCompoundsToGrant()` with no arguments (same pattern as `forArea()` → `policyKeys()`).
 - **`CatalogQuery`:** `abilityCompoundsForCeilingFromMenuKeys`, `abilityCompoundsForCeilingFromFeatureKeys`,
-  `abilityCompoundsForCeilingFromMenuAndFeatureKeys`, `abilityCompoundsToGrantFromMenuAndFeatureKeys` — string key
-  inputs without manual `SurfaceRef` wiring.
+  `abilityCompoundsForCeilingFromMenuAndFeatureKeys`, `abilityCompoundsToGrantFromMenuAndFeatureKeys` — one-shot string
+  key inputs without manual `SurfaceRef` wiring.
+
+### Changed
+
+- **`abilityCompoundsForCeiling` / `abilityCompoundsToGrant`** — optional `?array $surfaces`; omit when using chained
+  keys. Existing one-shot calls with `SurfaceRef[]` unchanged.
 
 ## [2.5.2] - 2026-10-26
 

@@ -39,7 +39,14 @@ describe('CatalogQuery ergonomics terminals', function () {
             ->and(Catalog::all()->policyKeySetForSurfaces([]))->toBe([]);
     });
 
-    it('returns empty ceiling terminals for empty menu or feature key lists', function () {
+    it('returns empty grant or ceiling when no surfaces are chained or passed', function () {
+        expect(Catalog::all()->abilityCompoundsForCeiling())->toBe([])
+            ->and(Catalog::all()->abilityCompoundsToGrant())->toBe([])
+            ->and(Catalog::all()->fromMenuKeys([])->fromFeatureKeys([])->abilityCompoundsForCeiling())->toBe([])
+            ->and(Catalog::all()->fromMenuKeys([])->fromFeatureKeys([])->abilityCompoundsToGrant())->toBe([]);
+    });
+
+    it('returns empty ceiling and grant terminals for empty menu or feature key lists', function () {
         expect(Catalog::all()->abilityCompoundsForCeilingFromMenuKeys([]))->toBe([])
             ->and(Catalog::all()->abilityCompoundsForCeilingFromFeatureKeys([]))->toBe([])
             ->and(Catalog::all()->abilityCompoundsForCeilingFromMenuAndFeatureKeys([], []))->toBe([])

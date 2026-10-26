@@ -23,6 +23,9 @@ final class CatalogQuery
 
     private ?string $areaConstraint = null;
 
+    /** @var list<SurfaceRef> */
+    private array $chainedSurfaceRefs = [];
+
     public function __construct(
         private readonly CatalogReader $reader,
         private readonly CatalogState $state,
@@ -60,6 +63,42 @@ final class CatalogQuery
     {
         $clone = clone $this;
         $clone->areaConstraint = $area;
+
+        return $clone;
+    }
+
+    /**
+     * @param  list<string>  $menuKeys
+     */
+    public function fromMenuKeys(array $menuKeys): self
+    {
+        if ($menuKeys === []) {
+            return $this;
+        }
+
+        $clone = clone $this;
+        $clone->chainedSurfaceRefs = [
+            ...$clone->chainedSurfaceRefs,
+            ...SurfaceRef::fromMenuKeys($menuKeys),
+        ];
+
+        return $clone;
+    }
+
+    /**
+     * @param  list<string>  $featureKeys
+     */
+    public function fromFeatureKeys(array $featureKeys): self
+    {
+        if ($featureKeys === []) {
+            return $this;
+        }
+
+        $clone = clone $this;
+        $clone->chainedSurfaceRefs = [
+            ...$clone->chainedSurfaceRefs,
+            ...SurfaceRef::fromFeatureKeys($featureKeys),
+        ];
 
         return $clone;
     }
@@ -289,32 +328,36 @@ final class CatalogQuery
     }
 
     /**
-     * @param  list<SurfaceRef>  $surfaces
+     * @param  list<SurfaceRef>|null  $surfaces  Pass refs for one-shot use, or chain fromMenuKeys/fromFeatureKeys and omit.
      * @return list<string>
      */
-    public function abilityCompoundsToGrant(array $surfaces): array
+    public function abilityCompoundsToGrant(?array $surfaces = null): array
     {
-        if ($surfaces === []) {
+        $refs = $surfaces ?? $this->chainedSurfaceRefs;
+
+        if ($refs === []) {
             return [];
         }
 
         return AbilityRef::toSortedCompounds(
-            $this->authorization()->abilitiesToGrant($surfaces),
+            $this->authorization()->abilitiesToGrant($refs),
         );
     }
 
     /**
-     * @param  list<SurfaceRef>  $surfaces
+     * @param  list<SurfaceRef>|null  $surfaces  Pass refs for one-shot use, or chain fromMenuKeys/fromFeatureKeys and omit.
      * @return list<string>
      */
-    public function abilityCompoundsForCeiling(array $surfaces): array
+    public function abilityCompoundsForCeiling(?array $surfaces = null): array
     {
-        if ($surfaces === []) {
+        $refs = $surfaces ?? $this->chainedSurfaceRefs;
+
+        if ($refs === []) {
             return [];
         }
 
         return AbilityRef::toSortedCompounds(
-            $this->authorization()->abilityCeiling($surfaces),
+            $this->authorization()->abilityCeiling($refs),
         );
     }
 

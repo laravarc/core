@@ -33,4 +33,9 @@ describe('CatalogQuery ergonomics terminals', function () {
             'demo.policies.alpha.viewAny',
         ]);
     });
+
+    it('returns empty policy terminals for empty surfaces', function () {
+        expect(Catalog::all()->policyKeysForSurfaces([]))->toBe([])
+            ->and(Catalog::all()->policyKeySetForSurfaces([]))->toBe([]);
+    });
 });

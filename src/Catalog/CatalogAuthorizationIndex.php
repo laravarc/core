@@ -206,14 +206,40 @@ final class CatalogAuthorizationIndex
             return $entry;
         }
 
-        if (str_ends_with($policyKey, '_policy')) {
-            $withoutSuffix = substr($policyKey, 0, -strlen('_policy'));
-            $entry = $withoutSuffix !== '' ? ($policySurfaces[$withoutSuffix] ?? null) : null;
-        } else {
-            $entry = $policySurfaces[$policyKey.'_policy'] ?? null;
+        foreach (self::policyKeyLookupVariants($policyKey) as $variant) {
+            if ($variant === $policyKey) {
+                continue;
+            }
+
+            $entry = $policySurfaces[$variant] ?? null;
+
+            if (is_array($entry)) {
+                return $entry;
+            }
         }
 
-        return is_array($entry) ? $entry : null;
+        return null;
+    }
+
+    /**
+     * Index and authorizer policy key forms (with/without `_policy` suffix).
+     *
+     * @return list<string>
+     */
+    public static function policyKeyLookupVariants(string $policyKey): array
+    {
+        $variants = [$policyKey];
+
+        if (str_ends_with($policyKey, '_policy')) {
+            $withoutSuffix = substr($policyKey, 0, -strlen('_policy'));
+            if ($withoutSuffix !== '') {
+                $variants[] = $withoutSuffix;
+            }
+        } else {
+            $variants[] = $policyKey.'_policy';
+        }
+
+        return array_values(array_unique($variants));
     }
 
     /**

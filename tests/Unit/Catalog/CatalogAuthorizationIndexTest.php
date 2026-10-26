@@ -131,6 +131,58 @@ describe('CatalogAuthorizationIndex', function () {
             ->and($surfaces['features'])->toContain('alias.feature');
     });
 
+    it('exposes policy key lookup variants for authorizer and index forms', function () {
+        expect(CatalogAuthorizationIndex::policyKeyLookupVariants('demo.policies.alias_policy'))->toEqual([
+            'demo.policies.alias_policy',
+            'demo.policies.alias',
+        ])->and(CatalogAuthorizationIndex::policyKeyLookupVariants('demo.policies.alias'))->toEqual([
+            'demo.policies.alias',
+            'demo.policies.alias_policy',
+        ]);
+    });
+
+    it('identifiersForSurfaces returns index policy keys with _policy suffix', function () {
+        $controller = 'App\\Modules\\Demo\\Controllers\\AliasPolicyController';
+
+        $metadata = new FakeMetadataReader(new MetadataArtifact(modules: [
+            'demo' => [
+                'controllers' => [
+                    'alias' => [
+                        'controller' => $controller,
+                        'menu' => ['key' => 'alias.menu', 'label' => 'Alias'],
+                        'features' => [
+                            ['key' => 'alias.feature', 'label' => 'Alias feat'],
+                        ],
+                    ],
+                ],
+            ],
+        ]));
+
+        $abilities = new FakeAbilityCatalog(
+            gates: [
+                $controller => [
+                    'index' => [['demo.policies.alias_policy.viewAny']],
+                ],
+            ],
+        );
+
+        $index = new CatalogAuthorizationIndex($metadata, $abilities);
+        $policies = $index->identifiersForSurfaces([SurfaceRef::menu('alias.menu')])['policies'];
+
+        expect($policies)->toContain('demo.policies.alias_policy');
+
+        $set = [];
+        foreach ($policies as $policyKey) {
+            foreach (CatalogAuthorizationIndex::policyKeyLookupVariants($policyKey) as $variant) {
+                $set[$variant] = true;
+            }
+        }
+
+        $authorizerPolicyKey = AbilityRef::fromCompound('demo.policies.alias.viewAny')->policyKey;
+
+        expect(isset($set[$authorizerPolicyKey]))->toBeTrue();
+    });
+
     it('throws on duplicate feature keys and writes no destination file', function () {
         $controller = 'App\\Modules\\Demo\\Controllers\\DupController';
         $path = sys_get_temp_dir().'/arc-auth-dup-'.uniqid('', true).'.php';

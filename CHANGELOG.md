@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.5.2] - 2026-10-26
+
+### Added
+
+- **`CatalogQuery`:** `policyKeysForSurfaces`, `policyKeySetForSurfaces` (authorizer ↔ index `_policy` aliases).
+- **`CatalogAuthorizationIndex::policyKeyLookupVariants`** — shared alias forms for policy key matching.
+
 ## [2.4.0] - 2026-10-26
 
 ### Added

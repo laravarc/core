@@ -254,6 +254,44 @@ final class CatalogQuery
      * @param  list<SurfaceRef>  $surfaces
      * @return list<string>
      */
+    public function policyKeysForSurfaces(array $surfaces): array
+    {
+        if ($surfaces === []) {
+            return [];
+        }
+
+        $identifiers = $this->authorization()->identifiersForSurfaces($surfaces);
+
+        return $identifiers['policies'];
+    }
+
+    /**
+     * Lookup set for policies linked to surfaces, including authorizer ↔ index `_policy` aliases.
+     *
+     * @param  list<SurfaceRef>  $surfaces
+     * @return array<string, true>
+     */
+    public function policyKeySetForSurfaces(array $surfaces): array
+    {
+        if ($surfaces === []) {
+            return [];
+        }
+
+        $set = [];
+
+        foreach ($this->policyKeysForSurfaces($surfaces) as $policyKey) {
+            foreach (CatalogAuthorizationIndex::policyKeyLookupVariants($policyKey) as $variant) {
+                $set[$variant] = true;
+            }
+        }
+
+        return $set;
+    }
+
+    /**
+     * @param  list<SurfaceRef>  $surfaces
+     * @return list<string>
+     */
     public function abilityCompoundsToGrant(array $surfaces): array
     {
         if ($surfaces === []) {

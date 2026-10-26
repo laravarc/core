@@ -112,9 +112,9 @@ final class CatalogAuthorizationIndex
                 continue;
             }
 
-            $entry = $policySurfaces[$policyKey] ?? null;
+            $entry = $this->policySurfaceEntry($policySurfaces, $policyKey);
 
-            if (! is_array($entry)) {
+            if ($entry === null) {
                 continue;
             }
 
@@ -179,9 +179,9 @@ final class CatalogAuthorizationIndex
                 continue;
             }
 
-            $entry = $policySurfaces[$ref->policyKey] ?? null;
+            $entry = $this->policySurfaceEntry($policySurfaces, $ref->policyKey);
 
-            if (! is_array($entry)) {
+            if ($entry === null) {
                 continue;
             }
 
@@ -193,6 +193,27 @@ final class CatalogAuthorizationIndex
         }
 
         return array_keys($menus);
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $policySurfaces
+     */
+    private function policySurfaceEntry(array $policySurfaces, string $policyKey): ?array
+    {
+        $entry = $policySurfaces[$policyKey] ?? null;
+
+        if (is_array($entry)) {
+            return $entry;
+        }
+
+        if (str_ends_with($policyKey, '_policy')) {
+            $withoutSuffix = substr($policyKey, 0, -strlen('_policy'));
+            $entry = $withoutSuffix !== '' ? ($policySurfaces[$withoutSuffix] ?? null) : null;
+        } else {
+            $entry = $policySurfaces[$policyKey.'_policy'] ?? null;
+        }
+
+        return is_array($entry) ? $entry : null;
     }
 
     /**

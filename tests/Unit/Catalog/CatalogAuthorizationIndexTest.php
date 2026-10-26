@@ -99,6 +99,38 @@ describe('CatalogAuthorizationIndex', function () {
             ->and($surfaces['features'])->toContain('policy.feature');
     });
 
+    it('resolves authorizer-style policy keys against metadata _policy index entries', function () {
+        $controller = 'App\\Modules\\Demo\\Controllers\\AliasPolicyController';
+
+        $metadata = new FakeMetadataReader(new MetadataArtifact(modules: [
+            'demo' => [
+                'controllers' => [
+                    'alias' => [
+                        'controller' => $controller,
+                        'menu' => ['key' => 'alias.menu', 'label' => 'Alias'],
+                        'features' => [
+                            ['key' => 'alias.feature', 'label' => 'Alias feat'],
+                        ],
+                    ],
+                ],
+            ],
+        ]));
+
+        $abilities = new FakeAbilityCatalog(
+            gates: [
+                $controller => [
+                    'index' => [['demo.policies.alias_policy.viewAny']],
+                ],
+            ],
+        );
+
+        $index = new CatalogAuthorizationIndex($metadata, $abilities);
+        $surfaces = $index->surfacesForPolicies(['demo.policies.alias']);
+
+        expect($surfaces['menus'])->toContain('alias.menu')
+            ->and($surfaces['features'])->toContain('alias.feature');
+    });
+
     it('throws on duplicate feature keys and writes no destination file', function () {
         $controller = 'App\\Modules\\Demo\\Controllers\\DupController';
         $path = sys_get_temp_dir().'/arc-auth-dup-'.uniqid('', true).'.php';

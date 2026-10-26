@@ -80,6 +80,7 @@ final class MetadataCatalogReader implements CatalogReader
     {
         return [
             'key' => $key,
+            'area' => null,
             'label' => (string) ($menu['label'] ?? $key),
             'parent_key' => isset($menu['parent']) ? (string) $menu['parent'] : null,
             'path' => isset($menu['path']) ? (string) $menu['path'] : null,
@@ -103,6 +104,7 @@ final class MetadataCatalogReader implements CatalogReader
 
         return [
             'key' => $key,
+            'area' => null,
             'label' => (string) ($feature['label'] ?? $key),
             'menu' => is_string($menuKey) && $menuKey !== '' ? $menuKey : null,
             'path' => isset($feature['path']) ? (string) $feature['path'] : null,

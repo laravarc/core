@@ -21,6 +21,8 @@ final class CatalogQuery
 
     private bool $onlyOrphaned = false;
 
+    private ?string $areaConstraint = null;
+
     public function __construct(
         private readonly CatalogReader $reader,
         private readonly CatalogState $state,
@@ -50,6 +52,14 @@ final class CatalogQuery
     {
         $clone = clone $this;
         $clone->modelConstraint = $model;
+
+        return $clone;
+    }
+
+    public function forArea(string $area): self
+    {
+        $clone = clone $this;
+        $clone->areaConstraint = $area;
 
         return $clone;
     }
@@ -140,6 +150,17 @@ final class CatalogQuery
         $menus = $this->filterOrphans($menus);
         $features = $this->filterOrphans($features);
 
+        if ($this->areaConstraint !== null) {
+            $menus = array_filter(
+                $menus,
+                fn (array $row): bool => $this->rowVisibleInArea($row),
+            );
+            $features = array_filter(
+                $features,
+                fn (array $row): bool => $this->rowVisibleInArea($row),
+            );
+        }
+
         if ($this->applyUserVisibility) {
             $menus = array_filter(
                 $menus,
@@ -167,6 +188,20 @@ final class CatalogQuery
         }
 
         return [$menus, $features];
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $rows
+     * @return array<string, array<string, mixed>>
+     */
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function rowVisibleInArea(array $row): bool
+    {
+        $area = $row['area'] ?? null;
+
+        return $area === null || $area === $this->areaConstraint;
     }
 
     /**
@@ -232,6 +267,7 @@ final class CatalogQuery
             md5(json_encode([
                 $this->policyConstraint,
                 $this->modelConstraint,
+                $this->areaConstraint,
                 $this->withOrphaned,
                 $this->onlyOrphaned,
                 $this->applyUserVisibility,

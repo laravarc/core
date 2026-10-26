@@ -47,6 +47,7 @@ final class CatalogManifestBuilder
     {
         return [
             'key' => (string) $menu['key'],
+            'area' => isset($menu['area']) ? (is_string($menu['area']) ? $menu['area'] : null) : null,
             'label' => (string) ($menu['label'] ?? $menu['key']),
             'parent_key' => $menu['parent_key'] ?? null,
             'path' => $menu['path'] ?? null,
@@ -67,6 +68,7 @@ final class CatalogManifestBuilder
     {
         return [
             'key' => (string) $feature['key'],
+            'area' => isset($feature['area']) ? (is_string($feature['area']) ? $feature['area'] : null) : null,
             'label' => (string) ($feature['label'] ?? $feature['key']),
             'menu' => $feature['menu'] ?? null,
             'path' => $feature['path'] ?? null,

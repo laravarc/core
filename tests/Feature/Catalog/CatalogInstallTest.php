@@ -32,6 +32,8 @@ describe('laravarc:catalog install lifecycle', function () {
 
         expect(Schema::hasColumn('larc_menus', 'is_orphaned'))->toBeTrue()
             ->and(Schema::hasColumn('larc_menus', 'orphaned_at'))->toBeTrue()
+            ->and(Schema::hasColumn('larc_menus', 'area'))->toBeTrue()
+            ->and(Schema::hasColumn('larc_features', 'area'))->toBeTrue()
             ->and(Schema::hasColumn('larc_menus', 'deleted_at'))->toBeFalse();
     });
 

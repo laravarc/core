@@ -27,6 +27,7 @@ final class DatabaseCatalogReader implements CatalogReader
 
             $result[$menu->key] = [
                 'key' => $menu->key,
+                'area' => $menu->area,
                 'label' => $this->defaultLabel($translations, $menu->key),
                 'parent_key' => $menu->parent_key,
                 'path' => $menu->path,
@@ -55,6 +56,7 @@ final class DatabaseCatalogReader implements CatalogReader
 
             $result[$feature->key] = [
                 'key' => $feature->key,
+                'area' => $feature->area,
                 'label' => $this->defaultLabel($translations, $feature->key),
                 'menu' => $feature->menu?->key,
                 'path' => $feature->path,

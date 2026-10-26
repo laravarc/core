@@ -19,6 +19,11 @@ final class Catalog
         return self::manager()->all();
     }
 
+    public static function forArea(string $area): CatalogQuery
+    {
+        return self::manager()->all()->forArea($area);
+    }
+
     public static function query(): CatalogQuery
     {
         return self::manager()->query();

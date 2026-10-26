@@ -13,6 +13,7 @@ use Illuminate\Support\Str;
  * @property int $id
  * @property string $uuid
  * @property string $key
+ * @property string|null $area
  * @property int|null $menu_id
  * @property string $source
  * @property string|null $path
@@ -31,6 +32,7 @@ final class CatalogFeature extends Model
     protected $fillable = [
         'uuid',
         'key',
+        'area',
         'menu_id',
         'source',
         'path',

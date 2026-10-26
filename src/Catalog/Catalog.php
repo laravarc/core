@@ -19,6 +19,11 @@ final class Catalog
         return \Laravarc\Core\Facades\Catalog::all();
     }
 
+    public static function forArea(string $area): CatalogQuery
+    {
+        return \Laravarc\Core\Facades\Catalog::forArea($area);
+    }
+
     public static function query(): CatalogQuery
     {
         return \Laravarc\Core\Facades\Catalog::query();

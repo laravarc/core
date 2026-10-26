@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Laravarc\Core\Facades\Catalog;
 use Laravarc\Core\Catalog\CatalogState;
+use Laravarc\Core\Catalog\Models\CatalogFeature;
 use Laravarc\Core\Catalog\Models\CatalogMenu;
 use Laravarc\Core\Tests\Fixtures\FakeAbilityCatalog;
 
@@ -61,6 +62,59 @@ describe('catalog manifest terminals', function () {
         $after = Catalog::all()->manifest();
 
         expect($before['revision'])->toBeLessThan($after['revision']);
+    });
+
+    it('filters manifest rows by area while null area stays global', function () {
+        Artisan::call('laravarc:catalog', ['action' => 'install']);
+        Cache::flush();
+
+        CatalogMenu::query()->create([
+            'key' => 'area.admin.menu',
+            'area' => 'admin',
+            'source' => 'custom',
+            'order' => 100,
+            'status' => 'enabled',
+        ]);
+        CatalogMenu::query()->create([
+            'key' => 'area.global.menu',
+            'source' => 'custom',
+            'order' => 101,
+            'status' => 'enabled',
+        ]);
+        CatalogMenu::query()->create([
+            'key' => 'area.user.menu',
+            'area' => 'user',
+            'source' => 'custom',
+            'order' => 102,
+            'status' => 'enabled',
+        ]);
+
+        $adminMenu = CatalogMenu::query()->where('key', 'area.admin.menu')->first();
+        CatalogFeature::query()->create([
+            'key' => 'area.admin.feature',
+            'area' => 'admin',
+            'menu_id' => $adminMenu?->id,
+            'source' => 'custom',
+            'order' => 1,
+            'status' => 'enabled',
+        ]);
+        CatalogFeature::query()->create([
+            'key' => 'area.user.feature',
+            'area' => 'user',
+            'source' => 'custom',
+            'order' => 2,
+            'status' => 'enabled',
+        ]);
+
+        $adminManifest = Catalog::forArea('admin')->manifest();
+        expect($adminManifest['menus'])->toHaveKeys(['area.admin.menu', 'area.global.menu'])
+            ->and($adminManifest['menus'])->not->toHaveKey('area.user.menu')
+            ->and($adminManifest['features'])->toHaveKey('area.admin.feature')
+            ->and($adminManifest['features'])->not->toHaveKey('area.user.feature');
+
+        $allManifest = Catalog::all()->manifest();
+        expect($allManifest['menus'])->toHaveKeys(['area.admin.menu', 'area.global.menu', 'area.user.menu'])
+            ->and($allManifest['features'])->toHaveKeys(['area.admin.feature', 'area.user.feature']);
     });
 
     it('filters menus for users without abilities', function () {

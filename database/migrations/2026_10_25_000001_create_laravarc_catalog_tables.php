@@ -14,6 +14,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->unique();
             $table->string('key')->unique();
+            $table->string('area', 64)->nullable()->index();
             $table->string('parent_key')->nullable()->index();
             $table->string('source', 32)->default('metadata');
             $table->string('icon')->nullable();
@@ -45,6 +46,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->unique();
             $table->string('key')->unique();
+            $table->string('area', 64)->nullable()->index();
             $table->foreignId('menu_id')->nullable()->constrained('larc_menus')->nullOnDelete();
             $table->string('source', 32)->default('metadata');
             $table->string('path')->nullable();

@@ -59,7 +59,9 @@ not configurable.
 ## Catalog
 
 Core owns the **catalog reader/writer**, metadata sync, and the `Laravarc\Core\Facades\Catalog`
-static entry. HTTP routes and admin controllers stay in the application.
+**Laravel facade** (resolves `CatalogManager` from the container). HTTP routes and admin
+controllers stay in the application. Prefer explicit `use Laravarc\Core\Facades\Catalog` in
+application code; inject `Laravarc\Core\Catalog\CatalogManager` when you need constructor DI.
 
 ### Installed signal
 
@@ -89,8 +91,8 @@ always come from the metadata artifact (`CatalogReader::controllersForMenu`).
 
 ### Facade query API
 
-Import `Laravarc\Core\Facades\Catalog`. Static entries: `Catalog::forUser($user)` and
-`Catalog::all()` / `Catalog::query()`.
+Import `Laravarc\Core\Facades\Catalog`. Entry methods (`forUser`, `all`, `query`,
+`forArea`) delegate to the bound `CatalogManager` singleton.
 Each returns a new `CatalogQuery` (manager is stateless, not Macroable; safe under Octane).
 
 Chain methods (clone per call, order-independent AND for policy + model):

@@ -7,8 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Nullable **`area`** on `larc_menus` and `larc_features`; **`Catalog::forArea()`** /
+  **`CatalogQuery::forArea()`** filter manifest rows (`null` area = visible in every area).
+
 ### Changed
 
+- **`Laravarc\Core\Facades\Catalog`** is now an Illuminate **Facade** over
+  `CatalogManager` (mockable via `Catalog::shouldReceive(...)` in tests). No
+  `extra.laravel.aliases` entry — import the facade explicitly.
 - **Catalog static entry** moved from `Laravarc\Core\Catalog\Catalog` to
   `Laravarc\Core\Facades\Catalog` (aligned with sibling Laravarc packages). The old
   class remains as a deprecated forwarder until 2.2.

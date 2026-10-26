@@ -51,4 +51,9 @@ final class CatalogManager
     {
         return $this->all();
     }
+
+    public function forArea(string $area): CatalogQuery
+    {
+        return $this->all()->forArea($area);
+    }
 }

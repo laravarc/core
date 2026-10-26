@@ -33,8 +33,8 @@ describe('Catalog query API', function () {
     });
 
     it('does not expose forPolicy as a static catalog entry', function () {
-        expect(method_exists(Catalog::class, 'forPolicy'))->toBeFalse()
-            ->and(method_exists(Catalog::class, 'forUser'))->toBeTrue()
-            ->and(method_exists(Catalog::class, 'all'))->toBeTrue();
+        expect(method_exists(CatalogManager::class, 'forPolicy'))->toBeFalse()
+            ->and(fn () => Catalog::forPolicy('demo.policy'))->toThrow(\Error::class)
+            ->and(Catalog::class)->toExtend(\Illuminate\Support\Facades\Facade::class);
     });
 });

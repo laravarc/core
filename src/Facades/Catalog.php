@@ -4,33 +4,22 @@ declare(strict_types=1);
 
 namespace Laravarc\Core\Facades;
 
+use Illuminate\Support\Facades\Facade;
 use Laravarc\Core\Catalog\CatalogManager;
 use Laravarc\Core\Catalog\CatalogQuery;
 
-final class Catalog
+/**
+ * @method static CatalogQuery forUser(mixed $user)
+ * @method static CatalogQuery all()
+ * @method static CatalogQuery query()
+ * @method static CatalogQuery forArea(string $area)
+ *
+ * @see CatalogManager
+ */
+final class Catalog extends Facade
 {
-    public static function forUser(mixed $user): CatalogQuery
+    protected static function getFacadeAccessor(): string
     {
-        return self::manager()->forUser($user);
-    }
-
-    public static function all(): CatalogQuery
-    {
-        return self::manager()->all();
-    }
-
-    public static function forArea(string $area): CatalogQuery
-    {
-        return self::manager()->all()->forArea($area);
-    }
-
-    public static function query(): CatalogQuery
-    {
-        return self::manager()->query();
-    }
-
-    private static function manager(): CatalogManager
-    {
-        return app(CatalogManager::class);
+        return CatalogManager::class;
     }
 }

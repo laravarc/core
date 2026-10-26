@@ -58,8 +58,8 @@ not configurable.
 
 ## Catalog
 
-Core owns the **catalog reader/writer**, metadata sync, and the `Laravarc\Core\Catalog\Catalog`
-facade. HTTP routes and admin controllers stay in the application.
+Core owns the **catalog reader/writer**, metadata sync, and the `Laravarc\Core\Facades\Catalog`
+static entry. HTTP routes and admin controllers stay in the application.
 
 ### Installed signal
 
@@ -89,7 +89,8 @@ always come from the metadata artifact (`CatalogReader::controllersForMenu`).
 
 ### Facade query API
 
-Static entries: `Catalog::forUser($user)` and `Catalog::all()` / `Catalog::query()`.
+Import `Laravarc\Core\Facades\Catalog`. Static entries: `Catalog::forUser($user)` and
+`Catalog::all()` / `Catalog::query()`.
 Each returns a new `CatalogQuery` (manager is stateless, not Macroable; safe under Octane).
 
 Chain methods (clone per call, order-independent AND for policy + model):

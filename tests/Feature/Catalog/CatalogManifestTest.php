@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
-use Laravarc\Core\Catalog\Catalog;
+use Laravarc\Core\Facades\Catalog;
 use Laravarc\Core\Catalog\CatalogState;
 use Laravarc\Core\Catalog\Models\CatalogMenu;
 use Laravarc\Core\Tests\Fixtures\FakeAbilityCatalog;

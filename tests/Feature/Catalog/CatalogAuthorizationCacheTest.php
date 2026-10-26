@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Facades\Artisan;
-use Laravarc\Core\Catalog\Catalog;
+use Laravarc\Core\Facades\Catalog;
 use Laravarc\Core\Catalog\CatalogSynchronizer;
 use Laravarc\Core\Catalog\Models\CatalogMenu;
 use Laravarc\Core\Catalog\Models\CatalogMenuTranslation;

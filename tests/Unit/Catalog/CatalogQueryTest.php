@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Support\Traits\Macroable;
-use Laravarc\Core\Catalog\Catalog;
+use Laravarc\Core\Facades\Catalog;
 use Laravarc\Core\Catalog\CatalogManager;
 use Laravarc\Core\Catalog\CatalogQuery;
 

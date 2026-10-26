@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Catalog static entry** moved from `Laravarc\Core\Catalog\Catalog` to
+  `Laravarc\Core\Facades\Catalog` (aligned with sibling Laravarc packages). The old
+  class remains as a deprecated forwarder until 2.2.
 - `bootstrap/cache/laravarc/catalog-state.php` now nests install metadata under a
   top-level `catalog` key. Readers accept legacy flat root keys until the next
   write, bump, or `markInstalled`.

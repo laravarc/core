@@ -4,25 +4,23 @@ declare(strict_types=1);
 
 namespace Laravarc\Core\Catalog;
 
+/**
+ * @deprecated 2.2 Use Laravarc\Core\Facades\Catalog
+ */
 final class Catalog
 {
     public static function forUser(mixed $user): CatalogQuery
     {
-        return self::manager()->forUser($user);
+        return \Laravarc\Core\Facades\Catalog::forUser($user);
     }
 
     public static function all(): CatalogQuery
     {
-        return self::manager()->all();
+        return \Laravarc\Core\Facades\Catalog::all();
     }
 
     public static function query(): CatalogQuery
     {
-        return self::manager()->query();
-    }
-
-    private static function manager(): CatalogManager
-    {
-        return app(CatalogManager::class);
+        return \Laravarc\Core\Facades\Catalog::query();
     }
 }

@@ -73,6 +73,176 @@ final class CatalogAuthorizationIndex
      */
     public function abilitiesForSurfaces(array $surfaces): array
     {
+        return $this->abilityCeiling($surfaces);
+    }
+
+    /**
+     * @param  list<SurfaceRef>  $surfaces
+     * @return list<AbilityRef>
+     */
+    public function abilitiesToGrant(array $surfaces): array
+    {
+        return $this->collectAbilityRefs($surfaces, firstOrGroupOnly: true);
+    }
+
+    /**
+     * Matches legacy SurfaceCatalog::abilityKeysForSurfaces flatten (first OR-group per method).
+     *
+     * @param  list<SurfaceRef>  $surfaces
+     * @return list<AbilityRef>
+     */
+    public function abilityCeiling(array $surfaces): array
+    {
+        return $this->collectAbilityRefs($surfaces, firstOrGroupOnly: true);
+    }
+
+    /**
+     * @param  list<string>  $policyKeys
+     * @return array{menus: list<string>, features: list<string>}
+     */
+    public function surfacesForPolicies(array $policyKeys): array
+    {
+        $payload = $this->payload();
+        $policySurfaces = $payload['policy_surfaces'] ?? [];
+        $menus = [];
+        $features = [];
+
+        foreach ($policyKeys as $policyKey) {
+            if (! is_string($policyKey) || $policyKey === '') {
+                continue;
+            }
+
+            $entry = $policySurfaces[$policyKey] ?? null;
+
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            foreach ($entry['menus'] ?? [] as $menuKey) {
+                if (is_string($menuKey) && $menuKey !== '') {
+                    $menus[$menuKey] = true;
+                }
+            }
+
+            foreach ($entry['features'] ?? [] as $featureKey) {
+                if (is_string($featureKey) && $featureKey !== '') {
+                    $features[$featureKey] = true;
+                }
+            }
+        }
+
+        return [
+            'menus' => array_keys($menus),
+            'features' => array_keys($features),
+        ];
+    }
+
+    /**
+     * @param  list<SurfaceRef>  $surfaces
+     * @return array{policies: list<string>, models: list<string>}
+     */
+    public function identifiersForSurfaces(array $surfaces): array
+    {
+        $policies = [];
+        $models = [];
+
+        foreach ($surfaces as $surface) {
+            $identifiers = $this->identifiersForSurface($surface->kind, $surface->key);
+
+            foreach ($identifiers['policies'] as $policy) {
+                $policies[$policy] = true;
+            }
+
+            foreach ($identifiers['models'] as $model) {
+                $models[$model] = true;
+            }
+        }
+
+        return [
+            'policies' => array_keys($policies),
+            'models' => array_keys($models),
+        ];
+    }
+
+    /**
+     * @param  list<AbilityRef>  $abilities
+     * @return list<string>
+     */
+    public function menuKeysForAbilities(array $abilities): array
+    {
+        $payload = $this->payload();
+        $policySurfaces = $payload['policy_surfaces'] ?? [];
+        $menus = [];
+
+        foreach ($abilities as $ref) {
+            if (! $ref instanceof AbilityRef) {
+                continue;
+            }
+
+            $entry = $policySurfaces[$ref->policyKey] ?? null;
+
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            foreach ($entry['menus'] ?? [] as $menuKey) {
+                if (is_string($menuKey) && $menuKey !== '') {
+                    $menus[$menuKey] = true;
+                }
+            }
+        }
+
+        return array_keys($menus);
+    }
+
+    /**
+     * @param  list<string>  $menuKeys
+     * @param  list<string>  $featureKeys
+     * @return array{by_menu: array<string, list<AbilityRef>>, unassigned: list<AbilityRef>}
+     */
+    public function groupedByMenuKey(array $menuKeys, array $featureKeys): array
+    {
+        $byMenu = [];
+        $unassigned = [];
+
+        foreach ($menuKeys as $menuKey) {
+            if (! is_string($menuKey) || $menuKey === '') {
+                continue;
+            }
+
+            $refs = $this->abilitiesToGrant([SurfaceRef::menu($menuKey)]);
+
+            if ($refs !== []) {
+                $byMenu[$menuKey] = $refs;
+            }
+        }
+
+        foreach ($featureKeys as $featureKey) {
+            if (! is_string($featureKey) || $featureKey === '') {
+                continue;
+            }
+
+            $refs = $this->abilitiesToGrant([SurfaceRef::feature($featureKey)]);
+
+            if ($refs === []) {
+                continue;
+            }
+
+            $unassigned = [...$unassigned, ...$refs];
+        }
+
+        return [
+            'by_menu' => $byMenu,
+            'unassigned' => $unassigned,
+        ];
+    }
+
+    /**
+     * @param  list<SurfaceRef>  $surfaces
+     * @return list<AbilityRef>
+     */
+    private function collectAbilityRefs(array $surfaces, bool $firstOrGroupOnly): array
+    {
         $payload = $this->payload();
         $surfaceIndex = $this->surfaceLookup($payload);
         $result = [];
@@ -98,26 +268,28 @@ final class CatalogAuthorizationIndex
                         continue;
                     }
 
-                    $firstGroup = $orGroups[0];
+                    $groupsToWalk = $firstOrGroupOnly ? [($orGroups[0] ?? [])] : $orGroups;
 
-                    if (! is_array($firstGroup)) {
-                        continue;
-                    }
-
-                    foreach ($firstGroup as $row) {
-                        if (! is_array($row)) {
+                    foreach ($groupsToWalk as $group) {
+                        if (! is_array($group)) {
                             continue;
                         }
 
-                        $ref = AbilityRef::fromStored($row);
-                        $compound = $ref->policyKey.'.'.$ref->ability;
+                        foreach ($group as $row) {
+                            if (! is_array($row)) {
+                                continue;
+                            }
 
-                        if (isset($seen[$compound])) {
-                            continue;
+                            $ref = AbilityRef::fromStored($row);
+                            $compound = $ref->toCompound();
+
+                            if (isset($seen[$compound])) {
+                                continue;
+                            }
+
+                            $seen[$compound] = true;
+                            $result[] = $ref;
                         }
-
-                        $seen[$compound] = true;
-                        $result[] = $ref;
                     }
                 }
             }

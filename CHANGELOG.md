@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-26
+
+### Added
+
+- **`CatalogAuthorizationIndex`:** `abilitiesToGrant`, `abilityCeiling`, `surfacesForPolicies`,
+  `identifiersForSurfaces`, `menuKeysForAbilities`, `groupedByMenuKey`.
+- **`AbilityRef::toCompound()`** as the compound serializer (parse only via `fromCompound`).
+- **`CatalogQuery`:** `filterKnownFeatures`, `unknownFeatures`, `menuKeysForFeatures`.
+
+### Changed
+
+- **BREAKING:** **`Catalog::forArea()`** uses **exact** area match. Rows with `area = null` appear on
+  `Catalog::all()` only, not inside `forArea('admin'|'user')`.
+
 ## [2.2.1] - 2026-10-26
 
 ### Changed

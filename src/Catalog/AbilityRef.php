@@ -59,4 +59,9 @@ final readonly class AbilityRef
     {
         return new self((string) $row['policy_key'], (string) $row['ability']);
     }
+
+    public function toCompound(): string
+    {
+        return $this->policyKey.'.'.$this->ability;
+    }
 }

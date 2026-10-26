@@ -132,6 +132,59 @@ final class CatalogQuery
     }
 
     /**
+     * @param  list<string>  $featureKeys
+     * @return list<string>
+     */
+    public function filterKnownFeatures(array $featureKeys): array
+    {
+        $known = $this->features();
+
+        return array_values(array_filter(
+            $featureKeys,
+            static fn (mixed $key): bool => is_string($key) && $key !== '' && isset($known[$key]),
+        ));
+    }
+
+    /**
+     * @param  list<string>  $featureKeys
+     * @return list<string>
+     */
+    public function unknownFeatures(array $featureKeys): array
+    {
+        $known = $this->features();
+
+        return array_values(array_filter(
+            $featureKeys,
+            static fn (mixed $key): bool => is_string($key) && $key !== '' && ! isset($known[$key]),
+        ));
+    }
+
+    /**
+     * @param  list<string>  $featureKeys
+     * @return array<string, string|null>
+     */
+    public function menuKeysForFeatures(array $featureKeys): array
+    {
+        $known = $this->features();
+        $result = [];
+
+        foreach ($featureKeys as $key) {
+            if (! is_string($key) || $key === '') {
+                continue;
+            }
+
+            if (! isset($known[$key])) {
+                continue;
+            }
+
+            $menu = $known[$key]['menu'] ?? null;
+            $result[$key] = is_string($menu) && $menu !== '' ? $menu : null;
+        }
+
+        return $result;
+    }
+
+    /**
      * @return array{menus: array<string, array<string, mixed>>, features: array<string, array<string, mixed>>, revision: int}
      */
     public function toArray(): array
@@ -201,7 +254,11 @@ final class CatalogQuery
     {
         $area = $row['area'] ?? null;
 
-        return $area === null || $area === $this->areaConstraint;
+        if ($this->areaConstraint === null) {
+            return true;
+        }
+
+        return is_string($area) && $area === $this->areaConstraint;
     }
 
     /**

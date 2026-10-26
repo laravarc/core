@@ -64,7 +64,7 @@ describe('catalog manifest terminals', function () {
         expect($before['revision'])->toBeLessThan($after['revision']);
     });
 
-    it('filters manifest rows by area while null area stays global', function () {
+    it('filters manifest rows by exact area match', function () {
         Artisan::call('laravarc:catalog', ['action' => 'install']);
         Cache::flush();
 
@@ -107,7 +107,8 @@ describe('catalog manifest terminals', function () {
         ]);
 
         $adminManifest = Catalog::forArea('admin')->manifest();
-        expect($adminManifest['menus'])->toHaveKeys(['area.admin.menu', 'area.global.menu'])
+        expect($adminManifest['menus'])->toHaveKey('area.admin.menu')
+            ->and($adminManifest['menus'])->not->toHaveKey('area.global.menu')
             ->and($adminManifest['menus'])->not->toHaveKey('area.user.menu')
             ->and($adminManifest['features'])->toHaveKey('area.admin.feature')
             ->and($adminManifest['features'])->not->toHaveKey('area.user.feature');

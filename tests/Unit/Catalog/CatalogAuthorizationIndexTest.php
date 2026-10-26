@@ -56,6 +56,47 @@ describe('CatalogAuthorizationIndex', function () {
             ->and($surfaceAbilities[0]->ability)->toBe('viewAny')
             ->and($surfaceAbilities[1]->ability)->toBe('update')
             ->and(collect($surfaceAbilities)->contains(fn (AbilityRef $ref): bool => $ref->ability === 'delete'))->toBeFalse();
+
+        $surface = [SurfaceRef::menu('demo.menu')];
+        $grant = $index->abilitiesToGrant($surface);
+        $ceiling = $index->abilityCeiling($surface);
+
+        expect($grant)->toHaveCount(2)
+            ->and($ceiling)->toHaveCount(2)
+            ->and(collect($ceiling)->pluck('ability')->all())->toEqual(collect($grant)->pluck('ability')->all())
+            ->and(collect($ceiling)->contains(fn (AbilityRef $ref): bool => $ref->ability === 'delete'))->toBeFalse();
+    });
+
+    it('reads policy surfaces without walking forPolicy', function () {
+        $controller = 'App\\Modules\\Demo\\Controllers\\PolicySurfaceController';
+
+        $metadata = new FakeMetadataReader(new MetadataArtifact(modules: [
+            'demo' => [
+                'controllers' => [
+                    'policy' => [
+                        'controller' => $controller,
+                        'menu' => ['key' => 'policy.menu', 'label' => 'Policy'],
+                        'features' => [
+                            ['key' => 'policy.feature', 'label' => 'Feat'],
+                        ],
+                    ],
+                ],
+            ],
+        ]));
+
+        $abilities = new FakeAbilityCatalog(
+            gates: [
+                $controller => [
+                    'index' => [['demo.policies.widget.viewAny']],
+                ],
+            ],
+        );
+
+        $index = new CatalogAuthorizationIndex($metadata, $abilities);
+        $surfaces = $index->surfacesForPolicies(['demo.policies.widget']);
+
+        expect($surfaces['menus'])->toContain('policy.menu')
+            ->and($surfaces['features'])->toContain('policy.feature');
     });
 
     it('throws on duplicate feature keys and writes no destination file', function () {

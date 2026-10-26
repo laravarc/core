@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-26
+
 ### Added
 
 - Nullable **`area`** on `larc_menus` and `larc_features`; **`Catalog::forArea()`** /
@@ -15,11 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **`Laravarc\Core\Facades\Catalog`** is now an Illuminate **Facade** over
-  `CatalogManager` (mockable via `Catalog::shouldReceive(...)` in tests). No
+  `CatalogManager` (mockable via `Catalog::swap()` / partial mocks in tests). No
   `extra.laravel.aliases` entry — import the facade explicitly.
 - **Catalog static entry** moved from `Laravarc\Core\Catalog\Catalog` to
   `Laravarc\Core\Facades\Catalog` (aligned with sibling Laravarc packages). The old
-  class remains as a deprecated forwarder until 2.2.
+  class remains as a deprecated forwarder.
 - `bootstrap/cache/laravarc/catalog-state.php` now nests install metadata under a
   top-level `catalog` key. Readers accept legacy flat root keys until the next
   write, bump, or `markInstalled`.
